@@ -34,12 +34,38 @@ The script:
   same for `style.md`, `communication.md`, `engineering.md`).
 - Symlinks each skill folder under `~/.claude/skills/<name>` → the matching
   folder in this repo.
+- Clones each personal MCP repo (see `PERSONAL_MCPS` in the script) to
+  `~/projects/<name>` and runs `uv sync`, without registering it with Claude
+  Code. See "Personal MCP servers" below.
 - Backs up any existing real file at the target path to
   `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
 - Skips files that are already correctly symlinked, so the script is safe
   to re-run.
 
 Restart Claude Code after the first install so it picks up the new skills.
+
+## Personal MCP servers
+
+MCP servers I wrote and run locally (e.g. `edamcp`). `install.sh` clones each
+to `~/projects/<name>` and runs `uv sync`, but deliberately does not register
+them with Claude Code. Registering at user scope would load every server's
+tools into context in every project, used or not.
+
+Instead, register a server only in the project where you want it, with local
+scope, so its tools load there and nowhere else:
+
+```bash
+# run inside the project that needs it
+claude mcp add --scope local edamcp -- uv run --directory ~/projects/edamcp edamcp
+```
+
+Append `--mode local` for edamcp's thin (35-tool) surface. Because the launch
+command points at the `~/projects/edamcp` checkout, your local edits are live
+and `git pull` updates it.
+
+To add another personal MCP, append a `"name|git-url"` line to `PERSONAL_MCPS`
+in `install.sh`, re-run it, then use the same `claude mcp add --scope local`
+pattern in your projects.
 
 ## Editing
 

@@ -6,6 +6,11 @@
 #
 # Re-runnable. Skips files that are already correctly symlinked.
 #
+# Also clones the personal MCP repos in PERSONAL_MCPS to ~/projects/ and runs
+# `uv sync`, but does not register them with Claude Code. Register those
+# per-project with `claude mcp add --scope local` (see README) so their tools
+# only load where you use them.
+#
 # Usage:
 #   ./install.sh                        # symlinks only (default, fast)
 #   ./install.sh --with-security-tools  # also install scanners + MCP server
@@ -21,6 +26,15 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 
 WITH_SECURITY=0
 CHECK_ONLY=0
+
+# Personal MCP servers to make available on this machine. The script clones
+# each to ~/projects/<name> and runs `uv sync`; it does NOT register them with
+# Claude Code. Register per-project with `claude mcp add --scope local` (see
+# README) so their tools only load where you actually use them.
+# Format: "name|git-url".
+PERSONAL_MCPS=(
+  "edamcp|https://github.com/charliecpeterson/edamcp.git"
+)
 
 for arg in "$@"; do
   case "$arg" in
@@ -98,6 +112,20 @@ run_check() {
     fi
   done
   [[ "$n" -eq 0 ]] && { echo "  (none)"; missing=1; }
+
+  if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
+    echo
+    echo "Personal MCP repos (~/projects; register per-project, see README):"
+    for entry in "${PERSONAL_MCPS[@]}"; do
+      local mcp_name="${entry%%|*}"
+      if [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
+        echo "  ✓ $mcp_name"
+      else
+        echo "  ✗ $mcp_name (not cloned — re-run ./install.sh)"
+        missing=1
+      fi
+    done
+  fi
 
   # Security tooling status — only if the skill is present
   if [[ -d "$REPO_DIR/skills/security-review-deep" ]]; then
@@ -185,6 +213,33 @@ if [[ -d "$REPO_DIR/skills/diffusion-skills/skills" ]]; then
       link_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
     fi
   done
+fi
+
+# ---------------------------------------------------------------------------
+# Personal MCP servers (code only; registered per-project, not globally)
+# ---------------------------------------------------------------------------
+if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
+  echo
+  echo "Personal MCP servers (cloned to ~/projects; register per-project, see README):"
+  if command -v uv >/dev/null 2>&1; then
+    for entry in "${PERSONAL_MCPS[@]}"; do
+      mcp_name="${entry%%|*}"
+      mcp_url="${entry#*|}"
+      mcp_path="$HOME/projects/$mcp_name"
+      if [[ -d "$mcp_path/.git" ]]; then
+        echo "  ok       $mcp_name ($mcp_path)"
+      else
+        echo "  clone    $mcp_name -> $mcp_path"
+        if git clone --quiet "$mcp_url" "$mcp_path" && (cd "$mcp_path" && uv sync --quiet); then
+          echo "  synced   $mcp_name"
+        else
+          echo "  fail     $mcp_name — clone/sync manually at $mcp_path"
+        fi
+      fi
+    done
+  else
+    echo "  skip     uv not found; install uv, then re-run"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
