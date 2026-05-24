@@ -90,12 +90,17 @@ Search the diff for these sinks and confirm each one is fed only safe inputs:
 - [ ] File paths: realpath + prefix check against a base directory
 - [ ] No user-controlled scheme (`file://`, `gopher://`, `dict://`)
 
-## 9. Race conditions / TOCTOU
+## 9. Race conditions / TOCTOU / replay
 
 - [ ] No check-then-act on file existence/permissions (use atomic operations)
 - [ ] Database operations use transactions + appropriate isolation, or row-level locking
 - [ ] No "check balance, then debit" without lock — use atomic decrement / compare-and-set
 - [ ] Idempotency keys for retryable mutations
+- [ ] **Replay protection for signed-message endpoints**: signed messages with
+  timestamps (Stripe webhooks, JWTs, signed cookies, OAuth requests) must
+  reject stale messages — the timestamp/nonce must be *checked*, not just
+  parsed. A captured-valid signed message replayed indefinitely is a signature
+  failure even though the signature is technically valid.
 - [ ] No assumption that an auth check still holds N milliseconds later
 
 ## 10. Error handling

@@ -49,37 +49,46 @@ Run all available scanners on the scoped change. Don't try to *be* the scanner �
 
 ```bash
 # SAST — pattern-based vuln detection
+
+WORKDIR="${TMPDIR:-/tmp}/security-review-$$"
+mkdir -p "$WORKDIR"
+
 semgrep --config=p/default --config=p/security-audit \
         --config=p/owasp-top-ten --config=p/cwe-top-25 \
-        --json --quiet <changed-files-or-dir> > /tmp/semgrep.json
+        --json --quiet <changed-files-or-dir> > "$WORKDIR/semgrep.json"
 
 # Dependency CVEs (Google's OSV aggregator)
-osv-scanner scan source -r --format=json --output=/tmp/osv.json .
+osv-scanner scan source -r --format=json --output="$WORKDIR/osv.json" .
 
 # Filesystem / IaC / container vulns
-trivy fs --severity HIGH,CRITICAL --format=json --output=/tmp/trivy.json .
+trivy fs --severity HIGH,CRITICAL --format=json --output="$WORKDIR/trivy.json" .
 
 # Secrets
-gitleaks detect --no-banner --report-format=json --report-path=/tmp/gitleaks.json
+gitleaks detect --no-banner --report-format=json --report-path="$WORKDIR/gitleaks.json"
 
 # Python-specific (if applicable)
-bandit -r <python-paths> -f json -o /tmp/bandit.json
+bandit -r <python-paths> -f json -o "$WORKDIR/bandit.json"
 ```
 
 If any tool is missing, note it and continue with the rest. Do not refuse to proceed.
 
 Read each JSON output and build a unified findings list with: file, line, rule, severity, message, raw tool source.
 
-### Step 3 — Pull live advisory context (via MCP)
+### Step 3 — Pull live advisory context (MCP first, scanners as fallback)
 
-If a `security-advisories` MCP server is available (or any equivalent CVE/GHSA tool):
+**If the `security-advisories` MCP server is registered, use it before any
+other dependency-scanning approach.** It's faster, doesn't need a venv, and
+returns structured data Claude can cite without paraphrasing.
 
-1. For every dependency added or version-bumped in the diff, call `check_package(ecosystem, name, version)`.
-2. For any fresh lockfile, call `check_dependencies_bulk` with all entries.
-3. If the user mentioned a specific CVE or you spotted one in the scanner output, call `lookup_cve` to get full details.
-4. If the change touches a notable technology (e.g. nginx, openssl, a major framework), call `recent_critical_cves(days=30, keyword=...)` to see if anything new affects it.
+Order of preference for dependency CVE lookups:
+1. **MCP** — `check_dependencies_bulk` for whole lockfiles, `check_package` for
+   single bumped deps, `lookup_cve` for any CVE ID you encounter.
+2. **osv-scanner** if the MCP isn't registered.
+3. Hand-rolled OSV.dev API calls (curl, Python urllib) only as a last resort
+   if both above fail.
 
-If no MCP server is available, fall back to `osv-scanner` output for dependency vulns and **say so explicitly** in the report — you have less live context than you would otherwise.
+Do NOT fall back to "recall the CVE from memory" — that's how CVE IDs get
+hallucinated. If the tools aren't available, say so explicitly in the report.
 
 ### Step 4 — Apply the threat-model checklist to the diff
 
@@ -135,6 +144,11 @@ If everything passes, the report can be three lines. If it doesn't, it can be te
 - **Treating scanner severity as final.** A CRITICAL Semgrep finding on dead code is less important than a MEDIUM one in a live auth path. Re-rank based on context.
 - **Burying lede.** Top of the report is the worst finding, always.
 - **Dropping findings without explanation.** If you decide a finding is a false positive, say so and say why. Never silently omit.
+- **Never cite a CVE ID that didn't come directly from a tool output.**
+  Every CVE-XXXX-NNNN in the report must be traceable to a specific tool
+  invocation (MCP `lookup_cve`, OSV-Scanner JSON, GHSA advisory result). If
+  you find yourself typing a CVE ID from memory or inference, stop — call
+  `lookup_cve` to verify it exists and matches your claim, or remove it.
 
 ## Lightweight mode
 

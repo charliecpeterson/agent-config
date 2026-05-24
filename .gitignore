@@ -13,5 +13,15 @@ settings.local.json
 # Backups created by install.sh
 *.backup-*
 
+# never sync the MCP server's venv or caches
+skills/security-review-deep/mcp-server/.venv/
+**/__pycache__/
+*.pyc
+
+# Python build artifacts from `uv pip install -e .`
+**/*.egg-info/
+**/build/
+**/dist/
+
 # Generated artifacts
 security-workflow.zip
