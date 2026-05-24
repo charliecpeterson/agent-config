@@ -76,48 +76,22 @@ think "what did that actually say?"
 
 ---
 
-## What to avoid — hard rules
+## What to avoid
 
-These are the patterns that scream "AI wrote this." Treat them as bugs.
+The global `communication.md` already covers the always-on baseline:
+vocabulary tells, em dashes, "it's not X, it's Y", soft intensifiers,
+"let's dive in" openers, generic profundity. Those rules apply here too —
+assume them.
 
-### Vocabulary
-Some words are reliably AI tells. Do not use them as the default unless they
-genuinely fit:
+The patterns below are the ones that come up specifically when generating
+or rewriting prose on behalf of the user (an email, a doc, a bio) rather
+than chatting with them. They are not in communication.md because they
+wouldn't apply in a chat context.
 
-- **Always replace:** delve, leverage (verb), robust, comprehensive,
-  cutting-edge, seamless, game-changer, utilize, paradigm, realm, tapestry,
-  testament to, embark, foster (as filler), unleash, navigate (as filler),
-  meticulous, holistic, actionable, learnings, deep dive, dive into,
-  ever-evolving, intricate, multifaceted, beacon, vibrant, thriving,
-  nestled, showcasing, in order to, due to the fact that.
-- **Flag in clusters:** harness, elevate, streamline, empower, bolster,
-  resonate, facilitate, crucial, myriad, plethora, ecosystem (metaphor),
-  cornerstone, paramount, transformative, reimagine, augment, illuminate.
-  Individually fine; two-plus in the same paragraph is a rewrite signal.
-
-Full lists, with replacements, are in `references/anti-ai-patterns.md`.
-Consult that file when reviewing or rewriting prose.
-
-### Sentence patterns
-- **"It's not X, it's Y."** Has become one of the clearest AI tells in
-  existence. Just say Y.
-- **Rhetorical-question payoffs:** "The result? Chaos." Cut or rewrite.
-- **Fake dramatic fragments:** "And then everything changed. Completely."
-  Use complete sentences.
-- **Lists of three for rhythm:** "Simple. Fast. Powerful." Write a sentence.
-- **Soft intensifiers:** "deeply transformative", "quietly powerful". Cut
-  the adverb or replace with a specific detail.
-- **Balance/reframe tics:** "not just X, but Y", "more than just X". Find
-  the actual bigger thing and say that.
-- **Hedging:** "perhaps", "could potentially", "it's important to note that",
-  "to be clear". Make the point directly.
-
-### Punctuation
-- **No em dashes** (— or --) as a stylistic device. Use a comma, colon,
-  period, or parentheses instead.
-- **No emoji** unless the user uses them first or the platform genuinely
-  expects them (e.g., a casual Slack message). Never as bullet markers,
-  never to signal enthusiasm.
+### Emoji
+No emoji unless the user uses them first or the platform genuinely expects
+them (a casual Slack message, a developer tweet). Never as bullet markers,
+never to signal enthusiasm. The content should carry the energy.
 
 ### Throat-clearing
 Cut every sentence whose only job is to announce that something is about
@@ -126,19 +100,7 @@ to be said:
 - "I wanted to reach out because…" → just say why.
 - "I'm writing to let you know that…" → just say it.
 - "The purpose of this document is to…" → just start the document.
-
-### Chatbot artifacts
-Remove entirely: "I hope this helps!", "Certainly!", "Absolutely!",
-"Great question!", "Let me know if you need anything else", "Feel free to
-reach out", "In this article we'll explore…", "Let's dive in".
-
-### Generic profundity
-Sentences that sound meaningful but contain no specific information:
-
-> "Success comes from embracing authenticity in a rapidly evolving world."
-
-Test: could this sentence appear in an article on a completely different
-topic without changing? If yes, delete it.
+- "As per our conversation…" → just continue from the conversation.
 
 ### Uniform rhythm
 Human writing has uneven cadence. AI writing tends toward every paragraph
@@ -146,10 +108,12 @@ the same length, every sentence the same weight, smooth transitions
 everywhere. Vary deliberately. Let a paragraph run long if the thought
 needs it. Cut another to one sentence if that's all it needs.
 
-For the exhaustive pattern list (significance inflation, copula avoidance,
-synonym cycling, vague attributions, reasoning-chain artifacts, novelty
-inflation, emotional flatline, false concessions, parenthetical hedging,
-and others), see `references/anti-ai-patterns.md`.
+For the exhaustive vocabulary tables (tier 1, 2, 3), context profiles, and
+deep pattern detail (significance inflation, copula avoidance, synonym
+cycling, vague attributions, reasoning-chain artifacts, novelty inflation,
+emotional flatline, false concessions, parenthetical hedging, and more),
+see `references/anti-ai-patterns.md`. Open that file when auditing existing
+prose or when a specific pattern needs more context than this SKILL gives.
 
 ---
 
@@ -337,17 +301,16 @@ Specificity is the antidote.
 
 ## Final test
 
-Before returning any piece of writing, run this check:
+Before returning any piece of writing, run this check (the always-on
+patterns from `communication.md` should already be clean; this list adds
+the prose-specific checks):
 
 - Could a human have written this, or does it sound generated?
 - Is every sentence doing something, or are some just filling space?
 - Would the reader finish this knowing more than when they started?
-- Any "it's not X, it's Y" construction anywhere? Delete it.
-- Any rhetorical-question payoffs ("The result? X.")? Cut or rewrite.
-- Any soft intensifiers ("deeply", "quietly", "incredibly")? Cut them.
 - Does every paragraph have the same length and cadence? Break the pattern.
-- Any generic profundity — sentences that sound meaningful but specify
-  nothing? Delete them or replace with something concrete.
+- Any throat-clearing openers ("I wanted to reach out because…")?
+- Any boilerplate closings ("I look forward to hearing from you")?
 - Does this read like a LinkedIn post trying to be a TED talk? Start over.
 
 If any answer is wrong: cut, rewrite, or ask for more to work with.

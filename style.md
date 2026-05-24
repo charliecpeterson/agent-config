@@ -96,3 +96,10 @@ When adding a function, module, or subsystem, ask:
 ## When stuck
 - Ask. Don't guess and produce 200 lines of plausible-looking wrong code.
 - Show the smallest possible thing first, then expand if it's right.
+- If a fix fails, don't try a variation of the same fix. Each failed
+  attempt is evidence the theory is wrong, not that the fix was slightly
+  off. Stop, re-examine what you assumed, then try a different theory.
+  Two failed fixes on the same theory means abandon the theory entirely
+  and widen the view (read more of the surrounding code, check the data
+  flow further upstream, question framework assumptions). Never make a
+  third attempt on the same theory — that's thrashing.
