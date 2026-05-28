@@ -205,6 +205,55 @@ in the diff.
 - [ ] **P2** PR-comment mode (post each finding as inline GitHub PR
   review comment via `gh api`).
 
+## H. Round 2: language depth, web pressure points, AI-slop sharpening
+
+Items found during the post-batch review: places where the skill is
+strong on the security-relevant subset but thin on language-specific
+quirks (Rust `unsafe`, C/C++ memory, half-broken AI-generated code).
+
+- [x] **P0** Step 1 of SKILL.md now lists "languages and frameworks in
+  the diff" as a capture item; languages absent from the diff record
+  `"ran": false, "reason": "language not in diff"` in the run summary.
+- [x] **P0** Category 23 (memory safety + unsafe constructs) landed in
+  threat-checklist.md with Rust / C/C++ / Go sub-blocks and an explicit
+  "how to run the scanners" footer (cargo-geiger, clippy with -W
+  flags, flawfinder, cppcheck, clang-tidy, gosec, staticcheck, plus
+  `go test -race` as runtime). Mirrored as item 23 in SKILL.md's
+  Step 4 top-categories list.
+- [x] **P0** Step 2 of SKILL.md adds Rust (`cargo audit` +
+  `cargo geiger` + clippy with -W unwrap_used / expect_used / panic /
+  indexing_slicing) and C/C++ (flawfinder + cppcheck + clang-tidy).
+  install.sh: flawfinder + cppcheck + clang-tidy auto-installed where
+  possible; cargo-geiger, clippy-driver, staticcheck print manual
+  hints (need their language toolchain). `--check` lists them.
+- [x] **P0** OWASP API Security Top 10 (2023) sub-block added to
+  category 18 mapping API1 BOLA / API2 Broken Auth / API3 BOPLA /
+  API4 URC / API5 BFLA / API6 Sensitive Business Flows / API7 SSRF /
+  API8 Misconfig / API9 Improper Inventory / API10 Unsafe Consumption.
+- [x] **P0** File uploads sub-block added to category 2: size cap,
+  MIME allowlist, content-sniff match, extension normalisation,
+  zip-slip, polyglot files, archive bombs, image-library CVE check,
+  virus-scan hook, resource cap on transcoding.
+- [x] **P1** SSTI examples added to category 3 (Jinja config /
+  `__class__.__mro__`, Twig registerUndefinedFilterCallback, ERB
+  `<%= system(...) %>`, Handlebars constructor.constructor).
+- [x] **P1** "Auth-specific attack patterns" sub-block added to
+  category 4: credential stuffing, password reset poisoning,
+  MFA bypass via response manipulation, OAuth callback hijacking,
+  account enumeration, session fixation.
+- [x] **P1** "Common SSRF vectors to grep for explicitly" sub-block
+  added to category 8: PDF generators, webhook callbacks, OAuth
+  callback URLs, image fetchers, OEmbed, RSS/Atom processors,
+  avatar proxies, SVG `<image href>`, prefetch / SSR, integration
+  "test connection" UIs.
+- [x] **P0** Category 22 (AI-generated code red flags) extended
+  with "looks done but isn't" sub-block: validators that don't
+  validate, sanitisers that don't sanitise, tests that test
+  nothing, dead-code branches, half-refactored identifiers, TODO
+  in production paths, commented-out code, inconsistent sibling
+  error handling, logging-as-fake-audit, feature flags that don't
+  kill, retry loops with no upper bound.
+
 ## G. Repo / packaging hygiene (the skill itself)
 
 - [x] **P0** `security-workflow.zip` deleted. It was a 2026-05-21

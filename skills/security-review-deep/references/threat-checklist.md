@@ -25,6 +25,23 @@ For each boundary: what data crosses, what validation is applied at the boundary
 - [ ] Unicode normalization where identity comparison matters (homograph attacks)
 - [ ] No "stringly typed" parameters that get later parsed unsafely
 
+### File uploads (apply when the diff adds or touches an upload path)
+
+File uploads are their own attack surface, not a generic input check. Walk these explicitly:
+
+- [ ] **Size cap** enforced at the HTTP layer (not just at the storage layer where the body has already been read)
+- [ ] **Count cap** on multipart fields and on the upload endpoint per session
+- [ ] **MIME-type allowlist** (not denylist). `image/png`, `image/jpeg` allowed; everything else rejected. `text/*` is rarely a good idea on an upload endpoint.
+- [ ] **Content sniff** matches the claimed MIME. Reject if `python-magic` / `file(1)` disagrees with the `Content-Type` header.
+- [ ] **Extension normalisation**. Strip path components, normalise Unicode, lowercase, and don't trust the client name as the storage name (use a UUID + a server-side mapping).
+- [ ] **Storage path** computed from a server-side ID; never derived from the client name. Saved outside the web root or behind an auth-gated handler, not a static file route.
+- [ ] **Zip-slip / archive traversal** on every archive (`.zip`, `.tar`, `.tar.gz`, `.7z`, `.rar`): validate that each entry's resolved path is inside the extraction root.
+- [ ] **Archive bombs**: cap decompressed size + entry count before extraction commits to disk.
+- [ ] **Polyglot files**: a real JPEG with PHP / JS appended is still a JPEG to most sniffers. If the file will be served back, set `Content-Disposition: attachment` or serve from a sandbox origin.
+- [ ] **Image / media processing CVEs**: ImageMagick, libvips, sharp, Pillow, ffmpeg have a long CVE history. Run versions through `composite_risk` and treat unreachable findings as still worth patching (reachability changes the moment user-uploaded content flows in).
+- [ ] **Virus / malware scan hook** if the file will be downloaded by other users (ClamAV is the boring default; many cloud providers offer scanned-bucket variants).
+- [ ] **Resource cap** on transcoding / thumbnailing pipelines (CPU, memory, time). An "image" that decodes to a 1 GB bitmap is a DoS.
+
 ## 3. Injection sinks
 
 Search the diff for these sinks and confirm each one is fed only safe inputs:
@@ -32,7 +49,7 @@ Search the diff for these sinks and confirm each one is fed only safe inputs:
 - [ ] **SQL** — parameterized queries only, no string concatenation, no `f"... {var}"` in raw SQL, no ORM raw modes without binding
 - [ ] **Command / shell** — `subprocess` with list args + `shell=False`, no `os.system`, no `eval`, no `shell=True` with user input
 - [ ] **OS path** — no path constructed from user input passed to `open`/`os.remove`/etc. without realpath + allowlist check
-- [ ] **Template** — Jinja autoescape on, no `| safe` on user input, no SSTI via user-controlled template strings
+- [ ] **Template / SSTI** — Jinja `autoescape` on, no `| safe` on user input, no user-controlled template *strings* (not just template variables). Classic payloads worth grepping for and explicitly rejecting: `{{config}}`, `{{''.__class__.__mro__}}`, `{{request.application.__globals__}}` (Jinja), `<%= system(...) %>` (ERB), `{{_self.env.registerUndefinedFilterCallback(...)}}` (Twig), `{{constructor.constructor('...')()}}` (Handlebars / Angular). Jinja `SandboxedEnvironment` is not a hard sandbox; never feed it untrusted templates.
 - [ ] **HTML** — output encoded for context (HTML body vs attribute vs JS vs CSS vs URL)
 - [ ] **HTTP headers** — no `\r\n` injection from user input into Set-Cookie / Location
 - [ ] **Log** — no `\n` injection allowing fake log lines
@@ -51,6 +68,15 @@ Search the diff for these sinks and confirm each one is fed only safe inputs:
 - [ ] No JWT `alg: none`; signing key not user-controllable; expiry enforced
 - [ ] No timing-unsafe credential comparison (`==` on tokens / hashes)
 - [ ] MFA / step-up auth required for sensitive actions where applicable
+
+### Auth-specific attack patterns
+
+- [ ] **Credential stuffing / brute force** — login + password-reset + MFA-challenge endpoints have rate limiting *per identifier* (not just per IP). Backoff increases on failure. Lockout has an admin-bypass path.
+- [ ] **Password reset poisoning** — reset link is built from a server-known canonical URL, never from `Host` / `X-Forwarded-Host`. Token has a short TTL, is single-use, and is invalidated on use *and* on password change *and* on session-token rotation.
+- [ ] **MFA bypass via response manipulation** — `/verify-otp` returns `{ "ok": true, "token": "..." }` only after server-side validation; the client cannot promote itself to authenticated by editing the response. Step-up flows can't be skipped by going straight to the post-step-up URL.
+- [ ] **OAuth / OIDC callback hijacking** — `redirect_uri` validated against an exact-match allowlist (no wildcard subdomains, no prefix match); `state` and `nonce` checked; PKCE used for public clients; no implicit flow for new code.
+- [ ] **Account enumeration** — login and password-reset return identical responses + timing for "user exists with wrong password" vs "user doesn't exist." Same for "email already registered" on signup (use a delayed-confirmation flow instead).
+- [ ] **Session fixation** — session ID rotates on login and on privilege change; pre-auth session cookies are not reused post-auth.
 
 ## 5. Secrets and credentials
 
@@ -89,6 +115,21 @@ Search the diff for these sinks and confirm each one is fed only safe inputs:
 - [ ] DNS rebinding considered (resolve once, connect to resolved IP)
 - [ ] File paths: realpath + prefix check against a base directory
 - [ ] No user-controlled scheme (`file://`, `gopher://`, `dict://`)
+
+### Common SSRF vectors to grep for explicitly
+
+Most SSRF in 2026 is not "user submitted an http:// to a fetch endpoint." It's hidden in features that *coincidentally* make outbound HTTP. Walk the diff for these:
+
+- [ ] **PDF generators** that render user-supplied HTML (wkhtmltopdf, headless Chromium, Puppeteer, WeasyPrint) — `<iframe src="http://169.254.169.254/...">` fetches cloud metadata server-side
+- [ ] **Webhook callbacks** where the user supplies the URL (Slack-style integrations, payment-provider notifications)
+- [ ] **OAuth callback URLs** — see category 4; also a classic SSRF disguised as auth flow
+- [ ] **Image fetchers in markdown / chat renderers** — auto-fetching `<img src>` to inline or cache means user-supplied URL → server-side request
+- [ ] **OEmbed / link unfurlers** — Slack/Discord/Mattermost-style URL previewing
+- [ ] **RSS / Atom / sitemap processors**
+- [ ] **Avatar / profile-image proxies** that fetch and cache an external URL
+- [ ] **SVG / XML processors** — XXE is the classic, but `<image href="...">` inside SVG also fetches
+- [ ] **Server-side prefetch / SSR / "click for preview"** features
+- [ ] **External webhooks for "test connection"** in integration setup UIs
 
 ## 9. Race conditions / TOCTOU / replay
 
@@ -203,6 +244,21 @@ Then ask, for each row:
 
 IDOR lives in the gap between what the app accepts and what it should allow. Scanners do not catch IDOR. Walk this table or you will miss it.
 
+### OWASP API Security Top 10 (2023) mapping
+
+When the change touches an HTTP API surface, walk this list explicitly. Most map to checks already above; the goal is to make sure the API mental model isn't different from the general web one.
+
+- [ ] **API1 BOLA — Broken Object-Level Auth** — covered by the IDOR / object-ownership row above. Confirm per-object, not per-endpoint.
+- [ ] **API2 Broken Authentication** — covered by category 4 + "Auth-specific attack patterns." Confirm token rotation, MFA, and identifier-keyed rate limits.
+- [ ] **API3 BOPLA — Broken Object Property-Level Auth** — mass assignment (also category 19). Server filters which fields can be set via `PATCH` / `PUT`, regardless of what the framework auto-binds. Property-level read filtering on responses (don't return `password_hash`, `internal_role`, audit timestamps a user shouldn't see).
+- [ ] **API4 Unrestricted Resource Consumption** — covered by category 15. Per-endpoint rate limits + per-user / per-IP caps + bounded pagination + memory caps on parsing.
+- [ ] **API5 BFLA — Broken Function-Level Auth** — admin endpoints aren't authorised by "the UI doesn't expose this." Confirm role check on every admin / privileged / internal route, not just on the discovery endpoint.
+- [ ] **API6 Unrestricted Access to Sensitive Business Flows** — referral abuse, gift-card redemption, account creation, password reset. Velocity limits, CAPTCHAs or proof-of-work where the action is monetisable, anomaly detection (also category 19).
+- [ ] **API7 SSRF** — covered by category 8 + the "common SSRF vectors" sub-list. Webhook / callback URL endpoints especially.
+- [ ] **API8 Security Misconfiguration** — DEBUG off, error responses don't leak stack traces, default credentials not present, CORS not `*` with credentials, security headers set (category 16), cloud bucket / object-store policies tightened.
+- [ ] **API9 Improper Inventory Management** — every documented endpoint has auth + rate-limit + monitoring; no shadow / deprecated / non-prod APIs reachable from the public hostname. New endpoints added to the OpenAPI spec (negative space, category 21).
+- [ ] **API10 Unsafe Consumption of APIs** — third-party API responses are validated like user input (especially when concatenated into queries, paths, or HTML). Outbound `verify=True`. Treat the *response* as untrusted even if the *destination* is trusted.
+
 ## 19. Business logic
 
 Pure app-layer flaws that no scanner finds. For each new flow that involves money, identity, permissions, or state transitions, ask:
@@ -272,6 +328,63 @@ Extra checks for AI-shaped code:
 - [ ] String-built SQL / commands / paths that "look like" the safe pattern but aren't (e.g. `f"... ?"` placeholders followed by `% (var,)` substitution)
 - [ ] New helper functions whose name and behavior duplicate an existing helper. AI loves to re-invent.
 - [ ] Tests that exercise the happy path only, with no adversarial inputs
+
+### "Looks done but isn't" patterns
+
+These are the failure mode where the code reads correct, type-checks, and even runs, but doesn't actually do the security-relevant work it claims to. Worst case in a security review: the model and a human reviewer both nod past them.
+
+- [ ] **Validators that don't validate** — `def validate_x(payload): return True`, or a function whose body is `pass` / `...` / a single `return value` with no inspection
+- [ ] **Sanitisers that don't sanitise** — `def sanitize(s): return s.strip()` named as if it's HTML-escaping, or a regex `re.sub` that misses the case it claims to remove
+- [ ] **Tests that test nothing** — `assert True`, `assert result is not None` where the real contract is much stronger, `assert response.status_code == 200` with no body / shape check, mocks set up for calls that never happen
+- [ ] **Dead-code branches** — `if False:`, `if 1 == 2:`, unreachable `else` after exhaustive returns, error handlers for exceptions that the wrapped code can no longer raise
+- [ ] **Half-refactored identifiers** — function renamed in declaration but called by old name elsewhere (works because the old name still exists from an undeleted shim); enum value renamed in one switch arm but not another
+- [ ] **TODO / FIXME / XXX / HACK in production paths** — especially adjacent to auth, validation, crypto, or anywhere a comment like "// trust this for now"
+- [ ] **Commented-out code blocks** — usually the model trying two approaches and not deciding; reviewer should ask which one is supposed to be live
+- [ ] **Inconsistent error handling between sibling endpoints** — `/api/v1/orders` does `try/except/abort(400)` on bad input, `/api/v1/orders/{id}` two lines later returns the raw exception. AI-drift signal.
+- [ ] **Logging that pretends to be auditing** — `log.info("user %s did %s", user_id, action)` is not an audit log; an audit log persists, is tamper-evident, and is queried on incidents. If the code claims to "audit" but only emits to stdout, that's a fake control.
+- [ ] **Feature flags / kill-switches that don't kill** — flag is checked, but the code path below the check still hits the same downstream code; or the flag is read once at import time and never refreshed
+- [ ] **Retry loops with no backoff and no upper bound** — `while True: try ... except: continue` is not retry logic, it's a busy loop disguised as resilience
+
+## 23. Memory safety and unsafe-language constructs
+
+Most language-level "this could be a CVE" bugs in 2026 still come from a handful of patterns: panics in long-running services, raw `unsafe` blocks in Rust, classic UB in C/C++, and dropped error handling in Go. Walk this when the diff includes the relevant language.
+
+### Rust
+
+- [ ] **`unsafe` blocks** carry a `// SAFETY:` comment explaining the invariant the author is upholding. No `// SAFETY: this should be fine` or no comment at all.
+- [ ] **`.unwrap()` / `.expect()`** appear only in `#[cfg(test)]` paths, examples, or `main`/`fn run() -> Result` style binaries where the program ending is the intended behaviour. Library code returns `Result` / `Option` and lets the caller decide.
+- [ ] **`panic!()` / `todo!()` / `unimplemented!()`** are not on a code path reachable from a request handler. `todo!()` left in is a stronger smell than a TODO comment because it crashes when hit.
+- [ ] **Integer overflow** — release builds wrap (don't panic). Use `checked_*` / `saturating_*` / `wrapping_*` explicitly on arithmetic over untrusted inputs.
+- [ ] **`Box<dyn Error>` / `anyhow::Error` returns** preserve `source` chains; no `.to_string()` early that loses the underlying context.
+- [ ] **`mem::transmute` / pointer casts** are flagged and justified in line. These are the things `cargo-geiger` will count.
+- [ ] **Async cancellation**: futures hold no critical sections across `.await` points that must run to completion. No locks held across `.await`. Cancellation-safe by construction.
+
+### C / C++
+
+- [ ] **Buffer operations** use bounded variants: `strncpy_s` / `snprintf` (not `strcpy` / `sprintf` / `gets`); std::string / std::span where the project allows.
+- [ ] **No format-string vulnerabilities** — never `printf(user_input)`; always `printf("%s", user_input)`.
+- [ ] **No use-after-free** — clear ownership; smart pointers where the project uses them; manual `free` paired with `nullptr` assignment.
+- [ ] **No double-free** — destructors / `free` paths don't run twice on the same pointer through control-flow exits.
+- [ ] **Integer overflow on size arithmetic** — `size_t` overflow in `malloc(n * m)` where `n` and `m` are externally influenced; use saturating multiplication or explicit bounds.
+- [ ] **Uninitialized memory** — every stack allocation is initialized before any branch reads from it; valgrind / MSan / UBSan in test runs.
+- [ ] **Concurrency on POSIX**: signal handlers do not call non-async-signal-safe functions; shared state across threads has appropriate synchronisation.
+
+### Go
+
+- [ ] **Errors checked at every call site** — `_, err := f(); if err != nil { return err }` not `_, _ := f()`. The Go vet tool catches some of these; gosec catches more; the model should flag any `err` shadowed or ignored.
+- [ ] **Nil pointer dereferences** — type assertions use the two-value form (`v, ok := x.(T)`) before dereferencing; map reads on possibly-nil maps are checked.
+- [ ] **`context.Context` propagated** through every call chain that involves I/O, with a deadline / cancel; no `context.Background()` in a request handler.
+- [ ] **Goroutine leaks** — every spawned goroutine has a clear termination path (context cancel, channel close, or a bounded loop). `go func() { for { ... } }()` with no exit is a leak.
+- [ ] **Slice aliasing** — `append` on a slice passed in by the caller can mutate the caller's view if cap > len; if you don't intend that, copy first.
+- [ ] **`defer` in loops** — defers don't run until the surrounding function returns, so `for { defer file.Close() }` leaks until the function exits.
+- [ ] **`time.After` in `select`** is not garbage-collected until it fires; use `time.NewTimer` + explicit `Stop()` in long-running loops.
+
+### How to run the scanners
+
+- **Rust**: `cargo-geiger` (count of `unsafe`), `cargo clippy --all-targets -- -W clippy::unwrap_used -W clippy::expect_used -W clippy::panic -W clippy::indexing_slicing`
+- **C / C++**: `flawfinder`, `cppcheck --enable=warning,performance,portability`, `clang-tidy --checks=clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*`
+- **Go**: `gosec`, `go vet`, `staticcheck`, plus `go test -race ./...` as a runtime check
+- **General**: `compiler` warnings with `-Werror` / `RUSTFLAGS=-Dwarnings` in CI
 
 ---
 

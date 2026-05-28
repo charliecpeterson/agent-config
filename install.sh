@@ -179,6 +179,11 @@ install_security_tools() {
   # JS/TS language layer (Python-installable, sees React/Express patterns)
   uv_tool_install njsscan
 
+  # C/C++ memory-safety scanners (Python-installable / brew-installable)
+  uv_tool_install flawfinder
+  binary_install cppcheck cppcheck "apt/yum/dnf install cppcheck (or release from https://github.com/danmar/cppcheck/releases)"
+  binary_install clang-tidy llvm "brew install llvm; ensure /opt/homebrew/opt/llvm/bin is on PATH (ships with LLVM, not standalone)"
+
   # SBOM + cross-check vuln scanning
   binary_install syft syft "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin"
   binary_install grype grype "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b ~/.local/bin"
@@ -187,8 +192,11 @@ install_security_tools() {
   for pair in \
     "gosec|go install github.com/securego/gosec/v2/cmd/gosec@latest" \
     "govulncheck|go install golang.org/x/vuln/cmd/govulncheck@latest" \
+    "staticcheck|go install honnef.co/go/tools/cmd/staticcheck@latest" \
     "brakeman|gem install brakeman" \
-    "cargo-audit|cargo install cargo-audit"
+    "cargo-audit|cargo install cargo-audit" \
+    "cargo-geiger|cargo install cargo-geiger" \
+    "clippy-driver|rustup component add clippy"
   do
     cmd="${pair%%|*}"; hint="${pair##*|}"
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -274,8 +282,9 @@ run_check() {
         sec_missing=1
       fi
     done
-    # CI / IaC / SBOM. Missing here = the skill silently skips that layer.
-    for t in zizmor checkov hadolint shellcheck njsscan syft grype; do
+    # CI / IaC / SBOM + memory-safety scanners. Missing here = the skill
+    # silently skips that layer.
+    for t in zizmor checkov hadolint shellcheck njsscan syft grype flawfinder cppcheck clang-tidy; do
       if command -v "$t" >/dev/null 2>&1; then
         echo "  ✓ $t"
       else
@@ -283,7 +292,7 @@ run_check() {
       fi
     done
     # Language toolchains: only relevant if you work in that language.
-    for t in gosec govulncheck brakeman cargo-audit; do
+    for t in gosec govulncheck staticcheck brakeman cargo-audit cargo-geiger clippy-driver; do
       if command -v "$t" >/dev/null 2>&1; then
         echo "  ✓ $t"
       fi

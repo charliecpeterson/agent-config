@@ -1,6 +1,6 @@
 ---
 name: security-review-deep
-description: Use this skill for in-depth, scanner-grounded security audits — distinct from Claude Code's built-in lightweight `/security-review`. Trigger on "deep security review", "full security audit", "review this for vulnerabilities with scanners", "check for CVEs", "audit this PR", "scan my dependencies", "did anything new drop affecting us", or any time the user wants senior-pentester-level scrutiny that combines SAST, dependency CVE lookup, and a structured threat-model checklist. Also use proactively after the user finishes a bug fix, refactor, or feature touching authentication, authorization, input handling, file I/O, network calls, cryptography, deserialization, or dependency upgrades. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 22-category threat-model checklist (including OWASP LLM Top 10, IDOR / authz-matrix, business logic, and AI-generated-code red flags), and produces a triaged report — letting smaller models punch above their weight by grounding analysis in tool output rather than memory.
+description: Use this skill for in-depth, scanner-grounded security audits — distinct from Claude Code's built-in lightweight `/security-review`. Trigger on "deep security review", "full security audit", "review this for vulnerabilities with scanners", "check for CVEs", "audit this PR", "scan my dependencies", "did anything new drop affecting us", or any time the user wants senior-pentester-level scrutiny that combines SAST, dependency CVE lookup, and a structured threat-model checklist. Also use proactively after the user finishes a bug fix, refactor, or feature touching authentication, authorization, input handling, file I/O, network calls, cryptography, deserialization, or dependency upgrades. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 23-category threat-model checklist (including OWASP LLM Top 10, OWASP API Top 10, IDOR / authz-matrix, business logic, AI-generated-code red flags, and memory safety for Rust / C/C++ / Go), and produces a triaged report — letting smaller models punch above their weight by grounding analysis in tool output rather than memory.
 ---
 
 # Security Review
@@ -42,6 +42,14 @@ Capture:
 - list of changed files
 - any dependency manifests touched (`package.json`, `package-lock.json`, `requirements.txt`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `pom.xml`, `Gemfile.lock`, etc.)
 - whether the change touches any **sensitive surface** (see checklist below)
+- **languages and frameworks present in the diff**. This decides which Step 2 scanners run. Read the file extensions and a few imports, then list them explicitly, e.g.:
+
+  ```
+  languages: Python (Flask), Go, TypeScript (React), shell, Dockerfile
+  iac:       Terraform, GitHub Actions
+  ```
+
+  Languages absent from the diff skip their Step 2 scanner; record `"ran": false, "reason": "language not in diff"` in the run summary. This is what stops the model from blindly invoking `gosec` on a Python-only change.
 
 ### Step 2 — Run the deterministic scanners
 
@@ -96,8 +104,21 @@ shellcheck -f json <shell-files> > "$WORKDIR/shellcheck.json"
 spotbugs -textui -xml:withMessages -output "$WORKDIR/spotbugs.xml" \
          -pluginList find-sec-bugs.jar <build-output-dirs>
 
-# Rust (Cargo.toml present)
+# Rust (Cargo.toml present) — CVE deps, unsafe blocks, panic-prone code
 cargo audit --json > "$WORKDIR/cargo-audit.json"
+cargo geiger --output-format Json > "$WORKDIR/cargo-geiger.json"
+cargo clippy --all-targets --message-format=json -- \
+    -W clippy::unwrap_used -W clippy::expect_used \
+    -W clippy::panic -W clippy::indexing_slicing \
+    > "$WORKDIR/clippy.json"
+
+# C / C++ (*.c, *.cc, *.cpp, *.h, *.hpp) — classic memory-safety class
+flawfinder --csv <c-paths> > "$WORKDIR/flawfinder.csv"
+cppcheck --enable=warning,performance,portability \
+         --output-file="$WORKDIR/cppcheck.txt" --xml <c-paths>
+clang-tidy <c-paths> \
+    -checks='clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*' \
+    > "$WORKDIR/clang-tidy.txt"
 ```
 
 #### CI / build / infra surface (gate by file presence)
@@ -246,7 +267,8 @@ Read `references/threat-checklist.md` for the full list. The top categories:
 19. **Business logic** — payment / coupon / refund abuse, workflow step skipping, race-on-balance, signed-message replay, state-machine bypass, mass assignment
 20. **LLM / AI agent / MCP** — direct + indirect prompt injection, insecure output handling, excessive agency, system-prompt leakage, RAG poisoning, unbounded consumption; MCP-specific tool-arg validation, no shell from args, SSRF in fetch tools, auth on connect
 21. **Negative space** — for each addition, ask what *wasn't* added: route missing from auth allowlist, PII field missing from log scrubber, weakened control in the deletion side of the diff, new background job using elevated creds
-22. **AI-generated code red flags** — if the diff looks AI-shaped, do an extra pass on input handling, error paths, and duplicate helpers; AI-generated code carries ~2.74x the vuln density on average
+22. **AI-generated code red flags** — if the diff looks AI-shaped, do an extra pass on input handling, error paths, and duplicate helpers; AI-generated code carries ~2.74x the vuln density on average. Also walk the "looks done but isn't" sub-list: validators that don't validate, tests that test nothing, dead branches, half-refactored identifiers, TODO/FIXME left in production paths, feature flags that don't kill, retry loops with no upper bound.
+23. **Memory safety and unsafe constructs** — only when Rust / C / C++ / Go is in the diff. Rust: `unsafe` blocks need `// SAFETY:` justification; no `.unwrap()` / `.expect()` / `panic!()` / `todo!()` on reachable paths; integer overflow handling explicit. C/C++: bounded buffer ops, no format-string holes, UAF / double-free / uninitialized memory, integer overflow on size arithmetic. Go: errors checked at every call site, `context.Context` propagated, no goroutine leaks, no `defer` in loops.
 
 For each item: ✅ cleared (with brief reason), ⚠️ flagged (with file:line + explanation), or N/A.
 
