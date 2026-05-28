@@ -128,6 +128,38 @@ If any tool is missing, note it and continue with the rest. Record the absence i
 
 Read each JSON output and build a unified findings list with: file, line, rule, severity, message, raw tool source.
 
+#### Cross-cutting passes
+
+In addition to the file-scoped scanners, run these on every review:
+
+```bash
+# Secrets in history, not just the current diff. Gitleaks/trufflehog
+# default to "what's in the working tree;" attacker access to git
+# objects exposes everything previously committed. Look back at least
+# 30 days, more if the repo's young.
+trufflehog git "file://$(pwd)" --since-commit="HEAD~200" \
+  --json --no-update > "$WORKDIR/trufflehog-history.json"
+
+# Regression check: if a previous review exists for this repo, diff
+# the new findings against the old. Any finding that is NEW (was not
+# present in the previous report) is a regression and earns a tag in
+# the report. Findings that existed before are still flagged but
+# de-emphasized.
+PREV=".security-reviews/last.json"
+[[ -f "$PREV" ]] && comm -13 \
+    <(jq -r '.findings[].id' "$PREV" | sort) \
+    <(jq -r '.findings[].id' "$WORKDIR/report.json" 2>/dev/null | sort) \
+    > "$WORKDIR/regressions.txt" || true
+
+# Test coverage on changed security-relevant lines. Run the project's
+# coverage tool (pytest --cov / jest --coverage / cargo tarpaulin) and
+# cross-reference the uncovered lines against the diff. A new auth
+# check or input validator with no test is a real risk.
+```
+
+For each of these, omit gracefully if the tool isn't installed or the
+artifact doesn't exist; record in the run summary.
+
 ### Step 3 — Pull live advisory context (MCP first, scanners as fallback)
 
 **If the `security-advisories` MCP server is registered, use it before any
@@ -149,6 +181,11 @@ Order of preference for dependency CVE lookups:
      best-effort smallest version that clears all of them. Cite this
      verbatim in the "Suggested fix" block.
    - `ghsa_get(ghsa_id)` / `lookup_cve(cve_id)` for full advisory text.
+   - `package_health(ecosystem, name)` for maintenance signals (last
+     release date, total releases, maintainer count, archived /
+     yanked status). Run this on any *new* dependency the diff
+     adds — abandonware and typosquats are senior-reviewer concerns
+     OSV won't surface. PyPI + npm supported natively.
 2. **osv-scanner** if the MCP isn't registered.
 3. Hand-rolled OSV.dev API calls (curl, Python urllib) only as a last resort
    if both above fail.
@@ -281,6 +318,29 @@ scanner was unavailable, set `"ran": false` and `"reason": "..."`.
 
 Every dependency finding must carry a `reachable: yes/no/unknown` tag
 (per Step 3's reachability gate).
+
+Every finding (code OR dep) carries a `Confidence` tag:
+
+- **High** — confirmed by a deterministic scanner rule, demonstrated exploit, or direct call-graph evidence
+- **Medium** — pattern match or heuristic; verification recommended before acting
+- **Low** — speculative; flag for awareness, may be a false positive
+
+If a finding is Low confidence it generally belongs in "Medium /
+hardening" or below, not "Critical / High." See
+`references/report-template.md` for the full convention.
+
+If the caller asks for CI-friendly output (or passes `--sarif` /
+`--json`), also emit a sidecar alongside the markdown report:
+
+- `report.sarif` (SARIF 2.1.0) — for GitHub Advanced Security,
+  Azure DevOps, generic SCA tools, and the built-in `/code-review
+  --comment` machinery
+- `report.json` — flat finding list with `{file, line, rule,
+  severity, composite, reachable, confidence, source, suggested_fix}`
+
+The markdown report is for humans; the sidecar is for tools. Both
+must reference the same findings; do not silently drop entries when
+serializing.
 
 If everything passes, the report can be three lines. If it doesn't, it can be ten pages. Length follows findings, never the other way around.
 

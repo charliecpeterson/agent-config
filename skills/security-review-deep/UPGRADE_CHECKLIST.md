@@ -25,9 +25,12 @@ deviates from the plan or the scope changes.
 - [x] **P0** `latest_safe_version(ecosystem, name, current_version)` —
   walks every OSV-affected range, returns per-advisory fix versions
   plus a best-effort smallest version that clears all of them.
-- [ ] **P1** `package_health(ecosystem, name)` — last release date,
-  maintainer count, recent commit activity, archived flag. Senior
-  reviewers care about abandoned packages, not just CVE counts.
+- [x] **P1** `package_health(ecosystem, name)` — last release date,
+  days-since-release, total releases, maintainer count, repository
+  URL, yanked status, signals list (abandonware, single-maintainer,
+  typosquat-shape). PyPI + npm supported; other ecosystems return a
+  graceful stub. Tested live against requests / express / pyaes
+  (3171 days dormant → flagged).
 - [x] **P1** `ghsa_get(ghsa_id)` — GHSA-specific deep lookup via REST
   `/advisories/{ghsa_id}`. Pairs with the now-honest ghsa_search.
 - [ ] **P2** `mitre_attack_lookup(technique_id)` — map findings to
@@ -41,8 +44,15 @@ deviates from the plan or the scope changes.
   field; results are newest-first, so historical advisories like log4j
   won't surface from a string search). Docstring now points callers to
   `check_package` for "find all advisories for package X" queries.
-  Follow-up P1: replace free-text path with GraphQL `securityAdvisories`
-  for real full-text + pagination.
+- [x] **P1 (resolved-no-fix)** GraphQL replacement for `ghsa_search`
+  investigated. GitHub's `securityAdvisories` GraphQL query has the
+  same limitation: no free-text `query` argument. The only filters
+  are `identifier`, `classifications`, `publishedSince`, `updatedSince`,
+  `severities`, `ecosystem` (the latter two via `securityVulnerabilities`).
+  Switching to GraphQL would not improve free-text search; it would
+  just add an auth requirement (GraphQL requires `GITHUB_TOKEN`). The
+  honest answer is: use `check_package` / `recent_critical_cves` /
+  `lookup_cve` / `ghsa_get` for the real use cases. No code change.
 - [x] **P0** MCP server audit complete. Bandit + semgrep clean.
   Added: CVE-id and GHSA-id regex validators, package-name charset
   validator, ecosystem alias normalization with length cap, keyword
@@ -161,15 +171,17 @@ in the diff.
   from `composite_risk` is the default order within bucket.
 - [x] **P0** Run-summary JSON now required at the end of every report
   per Step 6. Format documented in SKILL.md.
-- [ ] **P1** Secrets history pass: `trufflehog git file://./ --since-commit=...`
-  even when the current diff is clean.
-- [ ] **P1** Regression check. Diff against previous review in
-  `.security-reviews/` (if exists). Flag new findings as regressions.
-- [ ] **P1** Confidence levels on every finding: High (scanner-confirmed),
-  Medium (pattern match, manual verification recommended), Low
-  (heuristic, may be FP).
-- [ ] **P1** Test-coverage check on changed lines. Flag changed
-  security-relevant lines with no test coverage.
+- [x] **P1** Secrets history pass with `trufflehog git --since-commit=`
+  added to Step 2 "Cross-cutting passes."
+- [x] **P1** Regression check via `.security-reviews/last.json` diff
+  added to Step 2 "Cross-cutting passes." Findings present in the
+  prior report are de-emphasized; new findings tagged as regressions.
+- [x] **P1** Confidence levels: every finding now carries
+  High / Medium / Low. Documented in SKILL.md Step 6 and the report
+  template.
+- [x] **P1** Test-coverage check on changed lines added to Step 2
+  "Cross-cutting passes." Implementation deferred to the per-project
+  coverage tool the model picks at run time.
 - [ ] **P2** Custom-rule prompt at end of review: "did you see a pattern
   here that should become a project-specific semgrep rule?" Write to
   `.semgrep/project-rules.yml`.
@@ -205,10 +217,13 @@ in the diff.
   cargo-audit print manual hints (they need a language toolchain).
   `install.sh --check` reports presence of each, distinguishing
   required (✗) from optional (-).
-- [ ] **P2** Integration test: run the skill against a seeded
-  vulnerable repo (OWASP juice-shop, DVPWA, etc.) and assert it
-  catches the planted vulns. Without this, refactors can silently
-  regress detection.
+- [x] **P2** Integration test landed at `tests/run_integration.sh`
+  with a tiny seeded `tests/fixtures/vulnerable-app/` (Python +
+  Dockerfile + GitHub Actions workflow + vulnerable requirements.txt).
+  Runner exits 1 on regression. Current state: 8/8 required checks
+  pass locally; 3 layers skipped because optional scanners aren't
+  installed here. `tests/README.md` documents what's seeded and how
+  to extend.
 
 ---
 

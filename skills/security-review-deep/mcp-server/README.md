@@ -33,6 +33,7 @@ so the model can cite real data instead of inventing it:
 | `kev_lookup`               | CISA Known Exploited Vulnerabilities check                                   |
 | `epss_score`               | FIRST.org EPSS exploit-prediction score                                      |
 | `composite_risk`           | Combined CVSS + EPSS + KEV triage signal with a 0-100 composite score        |
+| `package_health`           | Maintenance signals (last release, total releases, maintainers, abandoned). PyPI + npm.|
 
 ## Install
 

@@ -757,6 +757,38 @@ async def composite_risk(cve_id: str) -> dict[str, Any]:
     }
 
 
+# --- Tools: package health signals ---------------------------------------
+
+
+@mcp.tool()
+async def package_health(ecosystem: str, name: str) -> dict[str, Any]:
+    """Lightweight maintenance signals for a package: latest release date,
+    days since release, total releases, maintainer count, repository
+    URL, archived / yanked status. Native support: PyPI, npm. Other
+    ecosystems return a stub.
+
+    Use this to catch abandonware (no release in 2+ years),
+    single-maintainer risk, and very-new packages that might be
+    typosquats. A senior reviewer asks "should I depend on this at
+    all?" alongside "is this version vulnerable?"
+    """
+    eco = _check_ecosystem(ecosystem)
+    name = _check_pkg_name(name)
+
+    if eco == "PyPI":
+        return await _package_health_pypi(name)
+    if eco == "npm":
+        return await _package_health_npm(name)
+
+    return {
+        "ecosystem": eco,
+        "name": name,
+        "note": f"package_health not yet supported for ecosystem {eco}",
+        "supported_ecosystems": ["PyPI", "npm"],
+        "fetched_at": _now(),
+    }
+
+
 # --- Helpers --------------------------------------------------------------
 
 
@@ -884,6 +916,123 @@ def _compose_rationale(
     if cvss is not None:
         bits.append(f"CVSS {cvss}")
     return "; ".join(bits) or "no scoring data available"
+
+
+async def _package_health_pypi(name: str) -> dict[str, Any]:
+    url = f"https://pypi.org/pypi/{name}/json"
+    async with httpx.AsyncClient(timeout=20) as client:
+        data = await _get_json(client, url)
+    if not data:
+        return {
+            "ecosystem": "PyPI",
+            "name": name,
+            "error": "not found on pypi.org",
+            "source": "pypi.org",
+            "fetched_at": _now(),
+        }
+
+    info = data.get("info") or {}
+    releases = data.get("releases") or {}
+    latest_version = info.get("version")
+    latest_upload = None
+    if latest_version and releases.get(latest_version):
+        latest_upload = (releases[latest_version][0] or {}).get("upload_time")
+
+    days_since = _days_since_iso(latest_upload)
+
+    repo_url = None
+    purls = info.get("project_urls") or {}
+    for key in ("Source", "Repository", "Homepage", "Home"):
+        if purls.get(key):
+            repo_url = purls[key]
+            break
+    repo_url = repo_url or info.get("home_page") or None
+
+    signals = []
+    if days_since is not None and days_since > 730:
+        signals.append(f"no release in {days_since} days")
+    if len(releases) < 3:
+        signals.append("very few releases (typosquat risk)")
+    if info.get("yanked"):
+        signals.append("latest version yanked")
+
+    return {
+        "ecosystem": "PyPI",
+        "name": name,
+        "latest_version": latest_version,
+        "latest_release_at": latest_upload,
+        "days_since_release": days_since,
+        "total_releases": len(releases),
+        "repository_url": repo_url,
+        "summary": _cap(info.get("summary"), 300),
+        "yanked": bool(info.get("yanked")),
+        "signals": signals,
+        "source": "pypi.org",
+        "fetched_at": _now(),
+    }
+
+
+async def _package_health_npm(name: str) -> dict[str, Any]:
+    # Encode `/` in scoped names: @scope/foo -> @scope%2Ffoo
+    encoded = name.replace("/", "%2F")
+    url = f"https://registry.npmjs.org/{encoded}"
+    async with httpx.AsyncClient(timeout=20) as client:
+        data = await _get_json(client, url)
+    if not data:
+        return {
+            "ecosystem": "npm",
+            "name": name,
+            "error": "not found on registry.npmjs.org",
+            "source": "registry.npmjs.org",
+            "fetched_at": _now(),
+        }
+
+    dist = data.get("dist-tags") or {}
+    times = data.get("time") or {}
+    latest = dist.get("latest")
+    latest_time = times.get(latest) if latest else times.get("modified")
+    days_since = _days_since_iso(latest_time)
+
+    maintainers = data.get("maintainers") or []
+    repo = (data.get("repository") or {}).get("url")
+
+    signals = []
+    if days_since is not None and days_since > 730:
+        signals.append(f"no release in {days_since} days")
+    if len(maintainers) <= 1:
+        signals.append("single maintainer")
+    versions = data.get("versions") or {}
+    if len(versions) < 3:
+        signals.append("very few releases (typosquat risk)")
+
+    return {
+        "ecosystem": "npm",
+        "name": name,
+        "latest_version": latest,
+        "latest_release_at": latest_time,
+        "days_since_release": days_since,
+        "total_releases": len(versions),
+        "maintainer_count": len(maintainers),
+        "repository_url": repo,
+        "summary": _cap(data.get("description"), 300),
+        "signals": signals,
+        "source": "registry.npmjs.org",
+        "fetched_at": _now(),
+    }
+
+
+def _days_since_iso(ts: str | None) -> int | None:
+    if not ts:
+        return None
+    # Accept both "2026-05-14T19:25:26" and "...Z" / "+00:00" suffixes.
+    s = ts.rstrip("Z")
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).days
+    except ValueError:
+        return None
 
 
 def _version_key(v: str) -> tuple:
