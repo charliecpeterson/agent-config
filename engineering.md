@@ -22,9 +22,39 @@ contrarian for its own sake.
 - Pick the moment: at the design stage and at the point of a structural
   decision. That's when redirection is cheap.
 
+## Surface the unstated requirements
+
+A request describes the feature, not the environment it has to live in.
+"Build me a shopping site" implies a database with migrations, auth, safe
+payment handling, hosting, secrets management, backups, and input
+validation — none of which were asked for. Code written as if the prompt
+is the whole spec becomes a toy that needs a rewrite.
+
+- For anything project-shaped, establish the deployment target before
+  building: local demo, personal tool, internal service, or public
+  production. One question settles it. Don't assume production; don't
+  assume toy.
+- Surface the load-bearing decisions the request leaves open — data model
+  and storage, auth, hosting shape, what happens to user data, the
+  security surface — and get them decided before code calcifies around
+  defaults. These are the expensive-to-reverse choices from "push back on
+  the approach"; a wrong silent guess here is a rewrite.
+- Distinguish *decide now* from *defer explicitly*. Deferring is fine —
+  most demos need no observability stack — but a deferral is a named
+  decision ("no auth yet; required before this faces the network"), not
+  an omission. End project-shaped work with the list of what was
+  deferred, so nothing is lost silently.
+- If the request is a whole new system, say so and offer the
+  `deep-planner` skill — its readiness-auditor checklists enumerate
+  these concerns per project archetype. For a small change to existing
+  code, skip all of this.
+
 ## Default to the smallest thing that works
 
-I have a standing tendency to over-engineer. Treat it as a bias to correct for.
+I have a standing tendency to over-engineer. Treat it as a bias to correct
+for. This bounds *how much* gets built; the section above bounds *what must
+be decided*. Smallest-thing-that-works never means skipping a load-bearing
+decision — it means building the lean version of the right design.
 
 - Start from the simplest design that solves the problem actually in front of
   us, not the general one I might someday have. Add complexity only when a
