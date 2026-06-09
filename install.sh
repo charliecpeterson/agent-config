@@ -46,8 +46,11 @@ PORTABLE_SKILLS=(
   editor
   human-writer
   presentation-designer
+  project-starter
   recent-research
   session-handoff
+  stampede3-debug
+  stampede3-submit
 )
 
 CHECK_ONLY=0
@@ -64,7 +67,29 @@ PERSONAL_MCPS=(
   "chemtoolsmcp|https://github.com/charliecpeterson/chemtoolsmcp.git"
   "comfyui_mcp|https://github.com/charliecpeterson/comfyui_mcp.git"
   "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
+  "h2mcp|https://github.com/charliecpeterson/h2mcp.git"
 )
+
+# Build a freshly cloned MCP: uv for Python repos, npm (+ build script if one
+# exists) for node repos.
+sync_mcp() {
+  local path="$1" name
+  name="$(basename "$path")"
+  if [[ -f "$path/pyproject.toml" ]]; then
+    if ! command -v uv >/dev/null 2>&1; then
+      echo "  manual   $name: install uv, then run 'uv sync' in $path"
+      return 1
+    fi
+    (cd "$path" && uv sync --quiet)
+  elif [[ -f "$path/package.json" ]]; then
+    if ! command -v npm >/dev/null 2>&1; then
+      echo "  manual   $name: install node, then 'npm install && npm run build' in $path"
+      return 1
+    fi
+    (cd "$path" && npm install --silent \
+      && { ! grep -q '"build"' package.json || npm run --silent build; })
+  fi
+}
 
 for arg in "$@"; do
   case "$arg" in
@@ -347,7 +372,7 @@ run_check() {
   echo
 
   echo "Synced files:"
-  for name in CLAUDE.md userprofile.md style.md communication.md engineering.md; do
+  for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
     local dest="$CLAUDE_DIR/$name"
     if [[ -L "$dest" ]] && [[ "$(readlink "$dest")" == "$REPO_DIR/$name" ]]; then
       echo "  ✓ $name"
@@ -509,7 +534,7 @@ echo "Target:          $CLAUDE_DIR"
 echo
 
 echo "Global config files:"
-for name in CLAUDE.md userprofile.md style.md communication.md engineering.md; do
+for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
   if [[ -f "$REPO_DIR/$name" ]]; then
     link_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
   fi
@@ -574,13 +599,9 @@ if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
       echo "           mv it to $mcp_path and update any local-scope registrations"
       continue
     fi
-    if ! command -v uv >/dev/null 2>&1; then
-      echo "  skip     $mcp_name (uv not found; install uv, then re-run)"
-      continue
-    fi
     if ask_yn "  Clone and sync $mcp_name?" Y; then
       echo "  clone    $mcp_name -> $mcp_path"
-      if git clone --quiet "$mcp_url" "$mcp_path" && (cd "$mcp_path" && uv sync --quiet); then
+      if git clone --quiet "$mcp_url" "$mcp_path" && sync_mcp "$mcp_path"; then
         echo "  synced   $mcp_name"
       else
         echo "  fail     $mcp_name (clone/sync manually at $mcp_path)"

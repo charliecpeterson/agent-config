@@ -13,6 +13,7 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 ├── style.md            Coding style and conduct
 ├── communication.md    Chat tone and format
 ├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
+├── settings.json       Synced permissions baseline (allow read-only, deny irreversibles)
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
 ├── agents/             Custom sub-agents shared across skills (deep-planner and writing-architect)
 ├── notes/              Research notes and scratch documents (not installed anywhere)
@@ -20,9 +21,16 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 └── .gitignore
 ```
 
-`settings.json` is intentionally not synced — it can hold machine-specific
-state (enabled plugins, MCP servers). Per-machine overrides go in
-`~/.claude/settings.local.json`, which Claude Code reads automatically.
+`settings.json` carries only portable policy: a permissions baseline allowing
+common read-only commands (git inspection, grep/rg, Slurm queries) and denying
+irreversibles (force-push, history rewrites, reading credential files).
+Machine-specific state (enabled plugins, model choice, extra permissions) goes
+in `~/.claude/settings.local.json`, which Claude Code merges automatically and
+which is never synced. Two consequences of the symlink: on a machine's first
+install, merge any keys from the backed-up old `settings.json` into
+`settings.local.json`; and UI actions that write settings (`/model`, plugin
+toggles) will dirty the repo file — move those keys to `settings.local.json`
+and `git checkout settings.json`.
 
 ## Install on a new machine
 
@@ -86,6 +94,9 @@ claude mcp add --scope local comfyui -- uv run --directory ~/mcps/comfyui_mcp co
 claude mcp add --scope local word -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp word
 claude mcp add --scope local excel -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp excel
 claude mcp add --scope local powerpoint -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp powerpoint
+
+# h2mcp (Hoffman2 jobs) is TypeScript; install.sh runs npm install + build
+claude mcp add --scope local hoffman2 -- node ~/mcps/h2mcp/dist/index.js
 ```
 
 Append `--mode local` for edamcp's thin (35-tool) surface. Because the launch
@@ -114,7 +125,15 @@ machines, `git pull` and the changes propagate.
 | `human-writer` | Generate or rewrite prose, always non-AI-sounding |
 | `office-mcp` | Driving live Word/Excel/PowerPoint docs through the office MCP tools |
 | `presentation-designer` | Slide content and narrative for decks |
+| `project-starter` | Bootstrap a new repo from my templates (Python science, Rust CLI, TS tool, MCP server) |
 | `recent-research` | Check current community/web sources before answering fast-moving questions |
 | `security-review-deep` | Scanner-grounded security audit (distinct from built-in `/security-review`) |
 | `session-handoff` | Cross-agent handoff document |
+| `stampede3-submit` | Build Slurm sbatch scripts for Stampede3 (queues, ibrun, modules, SU costs) |
+| `stampede3-debug` | Diagnose failed/stuck/slow Stampede3 jobs (sacct triage, cluster-specific gotchas) |
 | `writing-architect` | Macro-first pipeline for multi-page documents (outline → draft → layered reviews) |
+
+The Stampede3 pair is the pattern for per-cluster skills: submit + debug,
+self-contained queue table, cluster-specific failure modes. Hoffman2 is
+covered by the `h2mcp` MCP server instead; add a skill pair per cluster as
+needed (Anvil next).

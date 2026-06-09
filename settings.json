@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(which:*)",
+      "Bash(file:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(jq:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git stash list)",
+      "Bash(git remote -v)",
+      "Bash(uv tree:*)",
+      "Bash(squeue:*)",
+      "Bash(sacct:*)",
+      "Bash(sinfo:*)",
+      "Bash(seff:*)",
+      "Bash(module list)",
+      "Bash(module avail:*)",
+      "Bash(module spider:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git filter-repo:*)",
+      "Bash(git reflog expire:*)",
+      "Read(~/.ssh/id_*)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.netrc)"
+    ]
+  }
+}
