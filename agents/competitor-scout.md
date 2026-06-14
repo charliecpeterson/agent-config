@@ -8,6 +8,7 @@ description: >
   library-scout), or architectural design (use architecture-drafter).
   Typically invoked by the `deep-planner` skill at Phase 6.
 tools: WebSearch, WebFetch, Read, Grep, Glob
+model: sonnet
 ---
 
 # Competitor Scout

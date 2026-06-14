@@ -40,5 +40,36 @@
       "Read(~/.config/gh/hosts.yml)",
       "Read(~/.netrc)"
     ]
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "preferredNotifChannel": "terminal_bell",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/hooks/statusline.sh"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-secret-commit.sh",
+            "if": "Bash(git commit*)"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/format-edited-file.sh"
+          }
+        ]
+      }
+    ]
   }
 }

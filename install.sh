@@ -38,8 +38,9 @@ OPENCODE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 
 # Skills with no Claude-Code-specific machinery (no spawned sub-agents, no
 # bundled MCP server) — safe to expose to other agent CLIs. The heavy skills
-# (code-review-deep, deep-planner, writing-architect, security-review-deep)
-# stay Claude-only: their SKILL.md would load elsewhere but then half-execute.
+# (code-review-deep, deep-planner, writing-architect, security-review-deep,
+# llm-council) stay Claude-only: their SKILL.md would load elsewhere but then
+# half-execute.
 PORTABLE_SKILLS=(
   bug-hunter
   dyslexia-friendly
@@ -422,6 +423,17 @@ run_check() {
     [[ "$agents_found" -eq 0 ]] && { echo "  (none — re-run ./install.sh)"; missing=1; }
   fi
 
+  if [[ -d "$REPO_DIR/hooks" ]]; then
+    echo
+    echo "Hooks:"
+    if [[ -L "$CLAUDE_DIR/hooks" ]] && [[ "$(readlink "$CLAUDE_DIR/hooks")" == "$REPO_DIR/hooks" ]]; then
+      echo "  ✓ ~/.claude/hooks -> repo (statusline + $(find "$REPO_DIR/hooks" -name '*.sh' | wc -l | tr -d ' ') scripts)"
+    else
+      echo "  ✗ ~/.claude/hooks not linked to repo (re-run ./install.sh)"
+      missing=1
+    fi
+  fi
+
   echo
   echo "Cross-agent (Codex / pi / opencode / Crush):"
   local pn=0 ps
@@ -564,6 +576,14 @@ if [[ -d "$REPO_DIR/agents" ]]; then
     [[ -f "$agent_file" ]] || continue
     link_file "$agent_file" "$CLAUDE_DIR/agents/$(basename "$agent_file")"
   done
+fi
+
+# Hook + status-line scripts — one directory symlink so settings.json can
+# reference ~/.claude/hooks/<script> on every machine regardless of repo path.
+if [[ -d "$REPO_DIR/hooks" ]]; then
+  echo
+  echo "Hooks:"
+  link_file "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"
 fi
 
 prune_dangling "$CLAUDE_DIR/skills"

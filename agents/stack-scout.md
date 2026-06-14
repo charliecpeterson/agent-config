@@ -10,6 +10,7 @@ description: >
   analysis (use competitor-scout). Typically invoked by the
   `deep-planner` skill at Phase 6.
 tools: WebSearch, WebFetch, Read, Grep, Glob
+model: sonnet
 ---
 
 # Stack Scout

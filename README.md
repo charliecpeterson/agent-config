@@ -15,15 +15,19 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 ├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
 ├── settings.json       Synced permissions baseline (allow read-only, deny irreversibles)
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
-├── agents/             Custom sub-agents shared across skills (deep-planner and writing-architect)
+├── agents/             Custom sub-agents shared across skills (deep-planner, writing-architect, llm-council)
+├── hooks/              Lifecycle hook scripts + status line (symlinked to ~/.claude/hooks/)
 ├── notes/              Research notes and scratch documents (not installed anywhere)
 ├── install.sh          Symlinks files into ~/.claude/
 └── .gitignore
 ```
 
-`settings.json` carries only portable policy: a permissions baseline allowing
-common read-only commands (git inspection, grep/rg, Slurm queries) and denying
-irreversibles (force-push, history rewrites, reading credential files).
+`settings.json` carries portable policy and automation: a permissions baseline
+allowing common read-only commands (git inspection, grep/rg, Slurm queries) and
+denying irreversibles (force-push, history rewrites, reading credential files);
+the `hooks/` wiring (secret-commit guard, format-on-edit, status line); and the
+notification channel. All of it is machine-independent — the hook commands
+resolve through the `~/.claude/hooks/` symlink.
 Machine-specific state (enabled plugins, model choice, extra permissions) goes
 in `~/.claude/settings.local.json`, which Claude Code merges automatically and
 which is never synced. Two consequences of the symlink: on a machine's first
@@ -48,6 +52,9 @@ The script:
 - Symlinks each sub-agent file under `~/.claude/agents/<name>.md` → the matching
   file in this repo's `agents/` folder. Sub-agents are shared infrastructure
   used by skills like `deep-planner` and `writing-architect`.
+- Symlinks `~/.claude/hooks/` → this repo's `hooks/` folder, so the hook and
+  status-line scripts that `settings.json` references resolve on every machine.
+  See `hooks/README.md` for what each one does.
 - Also exports the *portable* skills (those with no Claude-Code sub-agent or MCP
   dependency — see `PORTABLE_SKILLS` in `install.sh`) to `~/.agents/skills/`, the
   directory Codex, pi, and opencode read natively. Crush is pointed at the same
@@ -123,6 +130,7 @@ machines, `git pull` and the changes propagate.
 | `dyslexia-friendly` | Formats all output for dyslexic-friendly reading |
 | `editor` | Critique-only feedback on drafts (no rewriting) |
 | `human-writer` | Generate or rewrite prose, always non-AI-sounding |
+| `llm-council` | Pressure-test a real decision through five independent advisor lenses + anonymous peer review + a chairman verdict (Karpathy's LLM Council) |
 | `office-mcp` | Driving live Word/Excel/PowerPoint docs through the office MCP tools |
 | `presentation-designer` | Slide content and narrative for decks |
 | `project-starter` | Bootstrap a new repo from my templates (Python science, Rust CLI, TS tool, MCP server) |
