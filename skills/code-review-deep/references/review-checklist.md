@@ -31,6 +31,7 @@ Covered in depth at Step 4 of the process. Record the verdict here.
 - [ ] Changed tests reflect real behavior change, not weakened assertions
 - [ ] Happy path paired with at least one negative / error-path test
 - [ ] Edge cases from category 1 have a test each, where practical
+- [ ] For the fragile bit, the suite actually *catches* a regression, not just covers the line — mutation-test it (`cargo mutants` / `mutmut` / `stryker`) on load-bearing logic (parsers, math, guards, state machines). A surviving mutant is a real hole; the fix is to write the test that kills it. See Step 4.
 
 ## 3. Code flow & coherence
 
@@ -42,6 +43,7 @@ Does the change fit the codebase, or was it bolted on? Read 2–3 neighboring fi
 - [ ] Level of abstraction matches the surrounding code; a reviewer scrolling past wouldn't see a seam
 - [ ] Naming, import style, and file organization match the neighbors
 - [ ] The smallest change that solves the problem — no speculative config, hooks, or extension points for hypothetical needs
+- [ ] **Cross-module contracts hold** — if the change adds a field/flag/key to a struct that's synced, serialized, cached, or consumed elsewhere, that member actually reaches every site it must. New control wired through to the action; new field copied in the sync function; cache/memo key updated; both sides of a producer/consumer schema agree; defaults not silently overridden by a second declaration. Enumerate, don't eyeball — see `references/contract-tracing.md`. This is the seam-between-files bug a line-by-line read never catches.
 
 ## 4. AI slop & authenticity
 
@@ -82,6 +84,7 @@ Tells that code was generated and not actually read. Each is a smell, not always
 - [ ] Retries have backoff and a cap; no infinite retry on a permanent failure
 - [ ] Resources released on the error path too (`finally` / `with` / `defer`)
 - [ ] Errors not over-caught: catching `Exception` where a specific type is meant
+- [ ] **Trace the failure path, not just the happy path** — for each external call (I/O, network, await, subprocess, DB), ask what happens when it *fails or returns empty/partial*, and confirm that path is handled and, ideally, tested. The happy-path bias is where error handling silently doesn't exist. Inject the failure (mock the call to raise/return empty) on the riskiest one rather than assuming the handler works.
 
 ## 8. API design
 

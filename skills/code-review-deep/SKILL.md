@@ -33,6 +33,8 @@ If you genuinely can't tell whether the user wants the whole codebase or one spe
 
 Work in this order. Don't skip to opinions before running the tools and reading the whole change — that's how reviews turn into either "looks good!" or a pile of nitpicks that miss the real problem.
 
+**Before Step 1, read `references/blind-spots.md`.** It lists the bug classes a past review here marked "clean" and that turned out to be real. For each entry whose trigger matches the code in front of you, run its named check — these aren't optional nits, they're the checks that *would have* caught a shipped bug. When a review is later found to have missed something, add an entry. This is the loop that makes the reviewer improve instead of repeating its blind spots; it applies to the whole-codebase path too.
+
 ### Step 1 — Scope the change
 
 ```bash
@@ -77,7 +79,11 @@ Let the tools find what tools are good at finding, so your attention is free for
 
 If a tool isn't configured in the project, **provision it before giving up** — `uvx ruff check`, a throwaway venv, `npx`, `pytest --cov`. A one-off install is cheap, and "no linter ran" is a weak line in an audit when the tool is one command away. Only after that genuinely fails do you note it unavailable and move on. Don't refuse to review. Capture each tool's output and treat failures as findings, not blockers.
 
+**Optional, for a large finding set with a local model available:** run the scanners broad-and-noisy and hand the raw output to a local model to cluster, drop obvious false positives, and rank — then adjudicate only the shortlist on the frontier model. This is the recall→triage→judgment split that saves tokens on the tedious part. The local model triages; it never renders correctness verdicts (it mis-calls exactly the cross-module bugs this skill targets). Setup and the hard boundary are in `references/scanner-triage.md`. Skip it with no penalty beyond cost if no local model is running.
+
 **Run the code where the risk is dynamic — don't assess it by reading alone.** Linters won't catch a broken LLM/agent retry loop, an async ordering bug, or a runtime crash on a path the tests skip. For the riskiest runtime logic — agent/LLM orchestration, background jobs, anything with no test around it — exercise it: mock the model or external call, replay a fixture, or run the one path in a REPL. "Assessed by reading only, no API key" is the most common way a review misses the real bug. If you truly can't run it, say so loudly in the report rather than implying you verified it.
+
+**For UI and stateful changes, run the app and watch the behavior — reading is not enough, and neither is a static trace.** A toggle that does nothing, a default that doesn't take effect, a control wired to the wrong action, a cluttered first screen: none of these show up in the diff, and some don't even show up under the cross-module trace in Step 3c because the code reads as correct. The only thing that catches them is launching the app and observing — click the control, check the default actually applies, read the first screen a real user sees. Two of the worst Orbitron bugs (a hardcoded default silently overriding the real one; a cache key that returned stale data on toggle) survived *both* a deep review and an adversarial static audit, and were caught only by running the fixed code and seeing the change not happen on screen. Use the `verify` skill or `references/project-review.md`'s run step. And critically: **after applying a fix, re-run and confirm the behavior actually changed.** "It compiled and the code looks right" is exactly the trap — a clean build after a fix proves nothing about whether the fix worked.
 
 The same blind-spot applies to artifacts whose only real test is execution: a **Dockerfile you can't `docker build`**, a CI workflow that only runs on push, a migration you can't apply against a real DB. The static linter (`hadolint`, `shellcheck`, `actionlint`) catches surface bugs, but "the runtime dependency is missing" or "the build stage can't see that file" only shows up on a real build. When you can't run it, flag the change as statically-reviewed-only in the report — don't let a clean `hadolint` pass read as "this image builds."
 
@@ -120,6 +126,12 @@ Classify every asymmetric line as **benign** or **suspicious**:
 
 For a multi-file split this is the highest-confidence check you have, and it's cheap enough to fan out one verifier per commit (see "When the diff is huge"). When the asymmetric set is all-benign, state that as the finding: "verified moves-only, no logic drift." Watch especially for numeric constants and formulas in math-heavy code — those are where a silent drift does the most damage and an eyeball misses it.
 
+### Step 3c — Trace the cross-module contracts
+
+The findings a line-by-line read *cannot* reach are the ones that live in the seam between two files: a field set in one struct but never copied into the struct that consumes it, a cache key that hashes a subset of the fields its output depends on, a GUI export the CLI silently ignores, a default declared in two places where one wins. Each site reads correctly alone; the bug is the gap between them. Reading harder never finds these — you'd need foresight about which field flows where. Replace foresight with enumeration: list every member at every site and let the asymmetry be the finding.
+
+Run this whenever the change touches **state that crosses a boundary** — UI state synced to a render/model layer, config read by more than one consumer, a producer/serializer paired with a separate reader, a cache/memo key derived from some struct, or a default that could be set in two places. The full method (how to find the hubs, the grep/AST enumeration recipes, the four asymmetry classes, and why the fix is an invariant test rather than a one-off patch) is in **`references/contract-tracing.md`**. This pass is mostly deterministic and nearly free, and on a large stateful codebase it's where the highest-value findings hide — don't skip it because the diff "looked clean." It is the single biggest reason a thorough review still misses bugs.
+
 ### Step 4 — Tests-of-the-change analysis
 
 The single highest-leverage step, and where most AI reviews fall down. Don't accept "there are tests" at face value.
@@ -132,6 +144,8 @@ The single highest-leverage step, and where most AI reviews fall down. Don't acc
 - Is each happy-path test paired with a negative/error-path test?
 - Run coverage when it's available and **cite the actual number — don't estimate** "~80% covered" from eyeballing. `pytest --cov`, `cargo llvm-cov`, `vitest --coverage` scoped to the changed files. A measured figure is a finding; a guessed one is noise.
 
+**Coverage is necessary, not sufficient — for the fragile bit, mutation-test it.** A line can be 100% covered by a test that would still pass if the logic were wrong (the happy-path-clustering trap that lets real bugs through). The rigorous check is mutation testing: flip a `<` to `<=`, delete a branch, negate a condition, and see if any test fails. A surviving mutant is a hole the suite can't see. Run it scoped to the trickiest changed module, not the whole repo (it's slow): `cargo mutants` (Rust), `mutmut` / `cosmic-ray` (Python), `stryker` (JS/TS). A surviving mutant on a load-bearing branch is a Block/Request-changes finding, not a nit. And close the loop the way Meta's mutation-guided generation does: when a mutant survives, the fix isn't "note it" — it's **write the test that kills it**, then confirm that test fails on the mutant and passes on the real code. Reserve this for changes where a silent regression would actually hurt (parsers, math, money, security guards, state machines); skip it on glue code.
+
 ### Step 5 — Walk the review checklist
 
 For **every changed file**, walk the checklist in `references/review-checklist.md`. For each category, mark ✅ cleared (with a one-line reason), ⚠️ flagged (with `file:line` + explanation), or N/A. Naming what you checked is the point — "looks good" with nothing behind it is the failure mode this step exists to prevent.
@@ -140,7 +154,7 @@ The categories, in priority order:
 
 1. **Correctness & logic** — off-by-one, null/None, boundary cases, error paths, async ordering, transaction boundaries, and plain bad logic: conditions that can't be true, inverted checks, dead branches, convoluted control flow that should be flat.
 2. **Tests** — covered in depth at Step 4; record the verdict here.
-3. **Code flow & coherence** — does it fit the architecture, or fragment it? Duplicate helpers, parallel mechanisms, wrong-file placement.
+3. **Code flow & coherence** — does it fit the architecture, or fragment it? Duplicate helpers, parallel mechanisms, wrong-file placement, and cross-module contracts (a new field/flag/key reaching every site it must sync/serialize/cache to — see Step 3c).
 4. **AI slop & authenticity** — the tells that mean code was generated and not read: `result`/`data`/`output` names where a specific one fits, `x = f(); return x`, `# Increment counter` over `counter += 1`, defensive `if x is not None` the types already guarantee, leftover debug prints, two near-identical helpers, a block that looks nothing like the file around it.
 5. **Refactoring & dead code** — duplication, god functions/files, abstractions with one caller, code the change leaves orphaned.
 6. **Clarity & naming** — names, function length, comments that explain *why* not *what*, magic numbers.
@@ -165,6 +179,8 @@ Sort every finding into one bucket, then write the report using `references/repo
 - **Discuss** — design questions worth a conversation, not blocking.
 - **Nit** — style, minor naming, formatting. Take or leave. Label them so the author knows they're optional.
 - **Praise** — call out what was done well. Not optional. A review that only ever criticizes burns out the person receiving it, and praising good patterns reinforces them.
+
+**Separate change-introduced from pre-existing (baseline discipline).** On a change review especially, distinguish a finding the change *introduced* from one that was already in the code it touched. They're both worth knowing, but they carry different weight: a bug the change adds blocks the change; a pre-existing bug in a neighboring line is a backlog item, not a reason to hold this merge. Mark pre-existing findings as such and group them at the end. This is the discipline professional scanners encode as a baseline — it's what keeps a review from drowning a small change in the accumulated debt of the file around it, which is the fastest way to get a review ignored wholesale.
 
 ## Tone guardrails
 

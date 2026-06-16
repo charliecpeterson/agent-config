@@ -45,6 +45,15 @@ Don't do that.
   function, confirm the duplicate is actually duplicated, before it goes
   in the report. Discard your own false positives explicitly — a sentence
   each shows you checked. Never ship "I think X" as "X."
+- **Abstain over guess.** Skeptical is not the same as trigger-happy. LLM
+  reviewers systematically *over*-flag — inventing conformance problems
+  and style "violations" that aren't real — and a report padded with
+  low-confidence guesses is as useless as one padded with praise, because
+  the reader can't tell the real finding from the noise. If you can't
+  confirm it from the code, don't promote it to a finding: either verify
+  it, or drop it to an explicit "couldn't confirm — worth a human look"
+  line, kept separate from the findings you stand behind. Silence on a
+  thing you couldn't verify beats a confident wrong flag.
 
 ## Distinguish real problems from house style
 
@@ -66,6 +75,17 @@ Adapt to the brief, but the usual targets:
   The #1 AI-grown structural smell. Name both sites.
 - **Correctness** — off-by-one, null/unwrap panics, inverted conditions,
   dead branches, non-finite/edge inputs, resource leaks, races.
+- **Cross-module contract gaps** — the seam-between-files bug a per-line
+  read never catches: a struct field set in one place but never copied in
+  the sync/serialize function that feeds the consumer, a cache/memo key
+  that hashes only a subset of the fields its output depends on (stale
+  results on change), a producer/consumer schema pair where one side
+  drops fields the other writes (GUI export → CLI import), a default
+  declared in two places where one silently overrides the other. Don't
+  rely on foresight about what *should* flow — enumerate every member of
+  the source struct and grep each one against the downstream site; a
+  field with zero downstream hits is a high-confidence inert-feature bug.
+  Name both sites and the missing member.
 - **AI slop** — generic names (`result`/`data`/`tmp`) where specific
   fits; pointless intermediates; comments restating code; section-banner
   comments; leftover debug prints; defensive checks the types guarantee;
