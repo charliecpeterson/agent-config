@@ -54,6 +54,22 @@ class OpencodeTest(unittest.TestCase):
             self.assertEqual(data["mcp"]["transcribemcp"]["type"], "local")
             self.assertTrue(data["mcp"]["transcribemcp"]["command"][0].endswith("transcribemcp-run"))
 
+    def test_permissions_bash_floor_ported(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            oc = base / "opencode"
+            oc.mkdir()
+            (oc / "opencode.json").write_text(json.dumps(SEED, indent=2))
+            _run(base, oc_dir=oc)
+
+            data = json.loads((oc / "opencode.json").read_text())
+            bash = data["permission"]["bash"]
+            self.assertEqual(bash["*"], "ask")                       # default
+            self.assertEqual(bash.get("git push --force*"), "deny")  # deny floor
+            self.assertEqual(bash.get("rm -rf /*"), "deny")
+            self.assertEqual(bash.get("git status*"), "allow")       # allow-list
+            self.assertEqual(data["model"], "vllm/nemotron-3-super")  # not clobbered
+
     def test_idempotent(self):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)

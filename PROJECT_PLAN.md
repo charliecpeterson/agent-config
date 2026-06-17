@@ -383,9 +383,14 @@ AGENTS.md renderer + Codex rules adapter landed.
     infra: deep-merge, JSONC-comment fail-safe). Verified live: preserves
     `provider.vllm`/`model`/existing `office-*` servers, adds ours.
   - [x] **skills** → native (`~/.agents/skills`); nothing to do.
-  - [ ] **permissions** (the real win — port bash allow/deny patterns from
-    settings.json; `Read()` credential denies may be a partial gap),
-    **subagents** (`agent/subagents/`), **commands**. Next.
+  - [x] **permissions** — the real win. Bash allow/deny floor ported from
+    settings.json to opencode's command-pattern model (`permission.bash`,
+    `*`:ask + allows + denies-last). Verified live: all 10 denies + 22
+    allows, `provider.vllm` preserved. `Read()` credential denies = partial
+    gap (opencode governs bash/edit, not file reads). `permissions.py`
+    shared parser.
+  - [ ] **subagents**, **commands**. (Subagents: see decision below —
+    the 12 agents are Claude-only-skill infrastructure.)
   - opencode AGENTS.md flatten removed from install.sh (now generator);
     the unused `write_flattened_rules` bash function deleted.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`
