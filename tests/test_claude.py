@@ -20,7 +20,12 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _render(claude_dir):
-    return run(REPO, env={**os.environ, "CLAUDE_DIR": str(claude_dir)})
+    claude_dir = Path(claude_dir)
+    return run(REPO, env={
+        **os.environ,
+        "CLAUDE_DIR": str(claude_dir),
+        "AGENT_CONFIG_STATE": str(claude_dir.parent / "state.json"),
+    })
 
 
 class ClaudeRenderTest(unittest.TestCase):
@@ -63,6 +68,35 @@ class ClaudeRenderTest(unittest.TestCase):
             res = _render(cd)
             self.assertEqual({v for v, _ in res.actions}, {"ok"}, res.actions)
             self.assertEqual(res.failures, [])
+
+
+class StateTest(unittest.TestCase):
+    def test_state_written(self):
+        import json
+        with tempfile.TemporaryDirectory() as td:
+            cd = Path(td) / ".claude"
+            _render(cd)
+            state = Path(td) / "state.json"
+            self.assertTrue(state.is_file())
+            self.assertGreater(len(json.loads(state.read_text())["artifacts"]), 0)
+
+    def test_stale_reported_not_deleted(self):
+        import json
+        with tempfile.TemporaryDirectory() as td:
+            cd = Path(td) / ".claude"
+            _render(cd)  # first run writes real state
+            state = Path(td) / "state.json"
+            # Inject a phantom artifact the next run won't produce.
+            data = json.loads(state.read_text())
+            phantom = str(Path(td) / "gone.md")
+            data["artifacts"].append(
+                {"harness": "claude", "asset": "skills", "path": phantom,
+                 "kind": "dir", "source_ref": "", "owned_keys": []}
+            )
+            state.write_text(json.dumps(data))
+            res = _render(cd)
+            self.assertIn(phantom, res.stale)          # reported
+            self.assertFalse(Path(phantom).exists())    # never created/deleted by us
 
 
 class RenderContextTest(unittest.TestCase):

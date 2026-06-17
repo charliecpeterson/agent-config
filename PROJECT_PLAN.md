@@ -2,7 +2,7 @@
 
 > Living document. Updated incrementally by the deep-planner skill.
 > Last updated: 2026-06-17
-> Current phase: planning complete (architecture + roadmap done)
+> Current phase: Phase 1 complete; Phase 2 (other adapters) next
 
 ## Goal                                                    (always)
 Evolve claude-config from a Claude-Code-centric config repo into a
@@ -306,8 +306,8 @@ per-adapter tests come with each adapter, only the clean-machine CI
 capstone defers to Phase 3.
 
 ### Phase 1: Core + Claude adapter, proven byte-identical
-**Mostly done 2026-06-17.** Generator built, cut over, tested. Remaining:
-the managed-state store / stale report.
+**DONE 2026-06-17.** Generator built, cut over, tested (8 tests green);
+state store + stale report landed. Phase 2 (other adapters) is next.
 - [x] `agentconfig/core.py` generator core: manifest dispatch, present-
       adapter gating, partial-failure-continues, per-adapter validate,
       end-of-run summary.
@@ -319,7 +319,8 @@ the managed-state store / stale report.
 - [~] `reconcile.py`: separate-file is the RenderContext; **keyed-merge +
       sentinel-key (OQ1) deferred to Phase 2** (no JSON config to merge
       into until the other adapters exist).
-- [ ] `state.json` managed-state store + stale report. **Remaining.**
+- [x] `state.json` managed-state store (`~/.agent-config/state.json`,
+      env-overridable) + stale report (D7 report-only, never deletes).
 - [x] Adapter contract (`adapter.py` ABC) + **Claude adapter**: rules
       (generated `CLAUDE.md` + copied rule files), settings, skills,
       subagents, hooks. (Full permissions decomposition is Phase 2.)

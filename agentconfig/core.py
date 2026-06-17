@@ -14,10 +14,16 @@ from datetime import datetime
 from pathlib import Path
 
 from . import manifest as manifest_mod
+from . import state as state_mod
 from .adapters import ClaudeAdapter
 from .manifest import Manifest
 from .model import RunResult
 from .render import RenderContext
+
+
+def _state_path(env) -> Path:
+    p = env.get("AGENT_CONFIG_STATE")
+    return Path(p) if p else Path.home() / ".agent-config" / "state.json"
 
 
 def build_adapters(manifest: Manifest, env) -> list:
@@ -33,6 +39,8 @@ def run(repo_root, *, dry_run: bool = False, env=None, stamp: str | None = None)
 
     manifest = manifest_mod.load(repo_root / "manifest.toml", repo_root)
     ctx = RenderContext(stamp, dry_run=dry_run)
+    state_path = _state_path(env)
+    prior = state_mod.load(state_path)
 
     for adapter in build_adapters(manifest, env):
         if not adapter.is_present():
@@ -50,6 +58,8 @@ def run(repo_root, *, dry_run: bool = False, env=None, stamp: str | None = None)
                 except Exception as e:  # noqa: BLE001
                     ctx.record_failure(f"{adapter.HARNESS}:validate", e)
 
+    ctx.result.stale = state_mod.stale_paths(prior, ctx.result.artifacts)
+    state_mod.save(state_path, ctx.result.artifacts, dry_run=dry_run)
     return ctx.result
 
 
