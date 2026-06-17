@@ -389,8 +389,16 @@ AGENTS.md renderer + Codex rules adapter landed.
     allows, `provider.vllm` preserved. `Read()` credential denies = partial
     gap (opencode governs bash/edit, not file reads). `permissions.py`
     shared parser.
-  - [ ] **subagents**, **commands**. (Subagents: see decision below —
-    the 12 agents are Claude-only-skill infrastructure.)
+  - [x] **subagents = GAP** (user-confirmed). The 12 agents are
+    infrastructure for Claude-only skills (deep-planner/writing-architect/
+    llm-council) that don't run in opencode — definitions with no caller.
+    Per-subagent targets = ["claude"]. Avoids a fragile stdlib YAML parser
+    for zero working value.
+  - **hooks = gap** (same Claude-script-contract issue as Codex).
+  - **commands = N/A** (no separate source; skills already reach opencode
+    natively via `~/.agents/skills`).
+  - **opencode adapter COMPLETE**: rules + skills + MCP + permissions
+    ported; subagents/hooks = gaps; commands N/A.
   - opencode AGENTS.md flatten removed from install.sh (now generator);
     the unused `write_flattened_rules` bash function deleted.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`
