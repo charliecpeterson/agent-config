@@ -25,3 +25,5 @@ skills/security-review-deep/mcp-server/.venv/
 
 # Generated artifacts
 security-workflow.zip
+__pycache__/
+*.pyc

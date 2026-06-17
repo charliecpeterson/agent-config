@@ -306,25 +306,34 @@ per-adapter tests come with each adapter, only the clean-machine CI
 capstone defers to Phase 3.
 
 ### Phase 1: Core + Claude adapter, proven byte-identical
-- [ ] `agentconfig/` generator core: manifest dispatch, present-harness
-      detection, partial-failure collection, end-of-run summary.
-- [ ] `RenderContext` safety primitives: atomic write (temp+`os.replace`),
-      backup-before-overwrite (`STAMP`), `--check` dry-run.
-- [ ] `manifest.py` loader: typed dataclasses from `manifest.toml`,
-      fail-fast structural validation.
-- [ ] `reconcile.py`: both D5 strategies (separate-file, keyed-merge) +
-      sentinel-key ownership marking (OQ1).
-- [ ] `state.json` managed-state store (machine-local) + stale report.
-- [ ] Adapter contract (`adapter.py` ABC) + **Claude adapter** for all
-      its asset types (rules→generated `CLAUDE.md` of `@import` lines,
-      skills, subagents, hooks, permissions).
-- [ ] `manifest.toml` authored for the current asset set.
-- [ ] `install.sh` demoted to bootstrap (find python3 → run generator);
-      keep MCP clone/`uv sync`/wrapper/`.env` bash.
-- [ ] **Golden test**: generator's `~/.claude` output diffs clean against
-      the old `install.sh` output. Cut over only when identical.
+**Mostly done 2026-06-17.** Generator built, cut over, tested. Remaining:
+the managed-state store / stale report.
+- [x] `agentconfig/core.py` generator core: manifest dispatch, present-
+      adapter gating, partial-failure-continues, per-adapter validate,
+      end-of-run summary.
+- [x] `render.py` `RenderContext`: atomic write (temp+`os.replace`),
+      backup-on-change, skip-if-unchanged, legacy-symlink→copy, `--check`
+      dry-run. (This *is* the separate-file strategy.)
+- [x] `manifest.py` loader: frozen dataclasses from `manifest.toml`,
+      fail-fast validation (missing rule file / skill / claude harness).
+- [~] `reconcile.py`: separate-file is the RenderContext; **keyed-merge +
+      sentinel-key (OQ1) deferred to Phase 2** (no JSON config to merge
+      into until the other adapters exist).
+- [ ] `state.json` managed-state store + stale report. **Remaining.**
+- [x] Adapter contract (`adapter.py` ABC) + **Claude adapter**: rules
+      (generated `CLAUDE.md` + copied rule files), settings, skills,
+      subagents, hooks. (Full permissions decomposition is Phase 2.)
+- [x] `manifest.toml` authored (rules + preamble + portable skills + claude).
+- [x] `install.sh` demoted: Claude config rendered by `python3 -m
+      agentconfig`; cross-agent skills + AGENTS.md flatten + MCP clone
+      stay bash. Dir vars env-overridable; added `--config-only`.
+- [x] **Golden test passed** (generator == legacy bash placement,
+      byte-identical) — the one-time cut-over gate. Replaced post-cutover
+      with durable tests (`tests/test_claude.py`: source-equality,
+      idempotency, RenderContext backup/symlink/dry-run) + `test.sh`.
+      Verified idempotent against live `~/.claude` (35 ok, 0 changes).
 **Out of scope**: other 4 harnesses, CI container test, the rename.
-**Effort**: the bulk of net-new code.
+**Effort**: the bulk of net-new code — done bar the state store.
 
 ### Phase 2: Remaining adapters, native-first, one at a time
 - [ ] **Codex** adapter (first — highest parity, fixes the `~/.agents/

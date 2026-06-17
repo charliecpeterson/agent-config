@@ -1,0 +1,44 @@
+# manifest.toml — declarative control plane for the agent-config generator.
+# Read-only (parsed via stdlib tomllib; nothing writes it back).
+#
+# Phase 1 scope: the Claude adapter. The asset×harness matrix and the other
+# harness blocks (codex/opencode/crush/pi) arrive in Phase 2, where they earn
+# their keep. See PROJECT_PLAN.md.
+
+[meta]
+repo_name = "agent-config"
+
+# The neutral content source for the instructions/prompt layer. Order is the
+# @import order in the generated CLAUDE.md and the concat order in AGENTS.md.
+[rules]
+files = ["userprofile.md", "style.md", "communication.md", "engineering.md"]
+# Preamble for the generated Claude CLAUDE.md, before the @import lines. The
+# generator rstrips it and appends a blank line + one @import per rule file, so
+# trailing-newline handling here is irrelevant.
+claude_preamble = """
+# Global instructions
+
+These rules apply to every project unless a project-level `CLAUDE.md`
+overrides them. Project files take precedence on conflict.
+"""
+
+[skills]
+# Portable = no Claude-Code sub-agent / MCP dependency; these get exported to
+# ~/.agents/skills for the other CLIs in Phase 2. Everything else is Claude-only.
+# Skills themselves are auto-discovered from skills/*/SKILL.md.
+portable = [
+  "bug-hunter",
+  "dyslexia-friendly",
+  "editor",
+  "human-writer",
+  "presentation-designer",
+  "project-starter",
+  "recent-research",
+  "session-handoff",
+  "stampede3-debug",
+  "stampede3-submit",
+]
+
+[harness.claude]
+config_dir = "~/.claude"
+strategy = "separate-file"   # copies into ~/.claude; settings.json is a copy

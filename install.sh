@@ -31,14 +31,16 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_DIR="$HOME/.claude"
+# Target dirs are env-overridable so the same install can be aimed at a temp
+# tree (used by tests/ to diff legacy placement against the generator).
+CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Cross-agent skill dir read natively by Codex, pi, and opencode, and by Crush
 # via skills_paths. Only skills in PORTABLE_SKILLS land here.
-AGENTS_SKILLS_DIR="$HOME/.agents/skills"
-CODEX_DIR="$HOME/.codex"
-OPENCODE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+AGENTS_SKILLS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
+CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
+OPENCODE_DIR="${OPENCODE_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 
 # Which accelerated backend extras this machine can use. Apple Silicon -> mlx,
 # an NVIDIA box -> cuda, anything else -> cpu. Drives the per-capability `uv`
@@ -708,54 +710,46 @@ run_check() {
 
 [[ "$CHECK_ONLY" -eq 1 ]] && run_check
 
+# Find a python3 with tomllib (>=3.11) for the generator.
+_find_python() {
+  local p
+  for p in python3 python3.14 python3.13 python3.12 python3.11; do
+    command -v "$p" >/dev/null 2>&1 || continue
+    "$p" -c 'import tomllib' 2>/dev/null && { echo "$p"; return 0; }
+  done
+  return 1
+}
+
 # ---------------------------------------------------------------------------
-# Symlink phase
+# Config phase
 # ---------------------------------------------------------------------------
 echo "Installing from: $REPO_DIR"
 echo "Target:          $CLAUDE_DIR"
 echo
 
-echo "Global config files:"
-for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
-  if [[ -f "$REPO_DIR/$name" ]]; then
-    place_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
-  fi
-done
+# Claude config (rules, skills, sub-agents, hooks) is rendered by the Python
+# generator (agentconfig), which copies into $CLAUDE_DIR. The legacy bash
+# placement it replaced is verified byte-identical by tests/test_golden.py.
+echo "Claude config (via agentconfig generator):"
+if py="$(_find_python)"; then
+  CLAUDE_DIR="$CLAUDE_DIR" PYTHONPATH="$REPO_DIR" $py -m agentconfig --repo-root "$REPO_DIR" \
+    || echo "  warn     generator reported failures (see above)"
+else
+  echo "  manual   need python3 >=3.11 (tomllib) to render Claude config; install it and re-run"
+fi
 
+# Cross-agent skills export — portable skills also copied to ~/.agents/skills
+# for Codex/pi/opencode. (Moves into per-harness adapters in Phase 2.)
 echo
-echo "Skills:"
+echo "Cross-agent skills (~/.agents/skills):"
 for skill_dir in "$REPO_DIR/skills"/*/; do
   [[ -d "$skill_dir" ]] || continue
   skill_name="$(basename "$skill_dir")"
-  # Only treat as a skill if it contains a SKILL.md (skips containers like diffusion-skills/)
-  if [[ -f "$skill_dir/SKILL.md" ]]; then
-    place_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
-    if is_portable_skill "$skill_name"; then
-      place_file "${skill_dir%/}" "$AGENTS_SKILLS_DIR/$skill_name"
-    fi
+  if [[ -f "$skill_dir/SKILL.md" ]] && is_portable_skill "$skill_name"; then
+    place_file "${skill_dir%/}" "$AGENTS_SKILLS_DIR/$skill_name"
   fi
 done
 
-# Custom sub-agents — flat .md files in agents/, copied into ~/.claude/agents/
-if [[ -d "$REPO_DIR/agents" ]]; then
-  echo
-  echo "Agents:"
-  for agent_file in "$REPO_DIR/agents"/*.md; do
-    [[ -f "$agent_file" ]] || continue
-    place_file "$agent_file" "$CLAUDE_DIR/agents/$(basename "$agent_file")"
-  done
-fi
-
-# Hook + status-line scripts — copied to ~/.claude/hooks/ so settings.json can
-# reference ~/.claude/hooks/<script> on every machine regardless of repo path.
-if [[ -d "$REPO_DIR/hooks" ]]; then
-  echo
-  echo "Hooks:"
-  place_file "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"
-fi
-
-prune_dangling "$CLAUDE_DIR/skills"
-prune_dangling "$CLAUDE_DIR/agents"
 prune_dangling "$AGENTS_SKILLS_DIR"
 
 # ---------------------------------------------------------------------------
