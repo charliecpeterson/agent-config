@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    name: tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: bash syntax + stdlib test suite
+        run: |
+          bash -n install.sh
+          python -m unittest discover -s tests -p 'test_*.py' -v
+
+  clean-install:
+    name: clean-machine install smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: render config into a clean temp tree
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          # Aim every harness dir at temp; absent ones (codex/opencode/...) are
+          # skip-absent on a clean runner, so only Claude renders.
+          CLAUDE_DIR="$tmp/.claude" \
+          AGENTS_SKILLS_DIR="$tmp/.agents/skills" \
+          CODEX_DIR="$tmp/.codex-absent" \
+          OPENCODE_DIR="$tmp/.opencode-absent" \
+          CRUSH_DIR="$tmp/.crush-absent" \
+          PI_DIR="$tmp/.pi-absent" \
+            bash install.sh --config-only
+          test -f "$tmp/.claude/CLAUDE.md"
+          test -f "$tmp/.claude/settings.json"
+          test -d "$tmp/.claude/skills/deep-planner"
+          test -d "$tmp/.claude/agents"
+          test -d "$tmp/.claude/hooks"
+          # generated config parses + portable skills exported
+          python -c "import json; json.load(open('$tmp/.claude/settings.json'))"
+          test -d "$tmp/.agents/skills/bug-hunter"
+          echo "clean-machine install OK"

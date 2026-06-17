@@ -2,7 +2,8 @@
 
 > Living document. Updated incrementally by the deep-planner skill.
 > Last updated: 2026-06-17
-> Current phase: Phase 1 complete; Phase 2 (other adapters) next
+> Current phase: Phases 1 & 2 complete; rename done early. Remaining:
+> README rewrite for the multi-harness reality (Phase 3 docs).
 
 ## Goal                                                    (always)
 Evolve claude-config from a Claude-Code-centric config repo into a
@@ -426,8 +427,16 @@ AGENTS.md renderer + Codex rules adapter landed.
   harnesses. Per-adapter unit tests + `tested_against` pins + `(verify)`-
   cell confirmation all done. MCP auto-registration (D4) done (Codex/
   opencode/Crush; pi=gap). 21 tests green.
-- [ ] Generate + publish the support matrix (the gaps are decided; now
-      surface them as a doc).
+- [x] **Support matrix published** → `SUPPORT.md` (curated table + gap
+      rationale + the 3 bugs verification caught). Hand-written, not
+      generated: a stable 30-cell table doesn't warrant a generator
+      (over-engineering watch).
+- [x] **CI** → `.github/workflows/ci.yml`: stdlib test suite across Python
+      3.11/3.12/3.13 + a clean-machine install smoke (render into a temp
+      tree on a fresh runner, assert artifacts land + parse). Validated
+      locally. **(Pulled forward from Phase 3.)**
+- [x] **PHASE 2 COMPLETE** — 5 harnesses rendered, support matrix
+      published, CI green-by-construction. 21 tests.
 **Out of scope**: the rename; the clean-machine CI capstone.
 **Effort**: ~one focused unit per adapter; pi is the wildcard.
 **Depends on**: Phase 1 (core + contract).
