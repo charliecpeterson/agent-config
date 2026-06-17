@@ -58,6 +58,11 @@ config_dir = "~/.config/crush"
 strategy = "keyed-merge"     # crush.json (plain JSON); CRUSH.md separate
 tested_against = "2026-06"
 
+[harness.pi]
+config_dir = "~/.pi/agent"   # pi reads a global AGENTS.md here
+strategy = "separate-file"   # rules only; pi has no native MCP
+tested_against = "0.79.0"
+
 # MCP servers to auto-register into each harness's native config (D4).
 # `targets` = harness names, or ["*"] for all. `command` is the launch command
 # (a ~/mcps/bin/<name>-run wrapper, or an explicit command + args). Secrets stay

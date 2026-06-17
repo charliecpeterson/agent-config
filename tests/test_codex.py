@@ -19,6 +19,7 @@ def _run(base: Path, *, codex_dir: Path):
         "CODEX_DIR": str(codex_dir),
         "OPENCODE_DIR": str(base / ".opencode-absent"),
         "CRUSH_DIR": str(base / ".crush-absent"),
+        "PI_DIR": str(base / ".pi-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 

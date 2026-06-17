@@ -413,12 +413,21 @@ AGENTS.md renderer + Codex rules adapter landed.
   - [x] **skills** → native (`skills_paths` → `~/.agents/skills`).
   - **permissions = gap** (allowed_tools can't express command denies, like
     Codex — OQ3). **subagents/hooks = gap**.
-- [ ] **pi** adapter LAST (verify identity `@mariozechner/pi-coding-agent`
-      + paths; Skills, AGENTS.md, MCP-via-extension shim).
-- [ ] Per-adapter: unit tests, permissions deny-floor round-trip check,
-      `tested_against` pin, `(verify)`-cell confirmation before trusting.
-- [ ] MCP auto-registration with per-MCP harness targeting (D4).
-- [ ] Generate + publish the support matrix from `[matrix.*]`.
+- [x] **pi** adapter COMPLETE (`@mariozechner/pi-coding-agent` confirmed;
+      pi installed here, verified live).
+  - **Verified live (2026-06, pi 0.79.0)**: pi reads a GLOBAL
+    `~/.pi/agent/AGENTS.md` (so rules DO port — corrects install.sh's
+    "pi is skills-only" assumption); pi has **NO native MCP** ("No MCP",
+    extension-only) → MCP gap; config is pi-managed (settings/trust/auth).
+  - [x] **rules** → `~/.pi/agent/AGENTS.md` (the only ported asset).
+  - **MCP = gap** (no native MCP). **skills** = unverified (left to the
+    export). **permissions/subagents/hooks = gap.**
+- [x] **ALL FOUR non-Claude adapters COMPLETE** — generator renders 5
+  harnesses. Per-adapter unit tests + `tested_against` pins + `(verify)`-
+  cell confirmation all done. MCP auto-registration (D4) done (Codex/
+  opencode/Crush; pi=gap). 21 tests green.
+- [ ] Generate + publish the support matrix (the gaps are decided; now
+      surface them as a doc).
 **Out of scope**: the rename; the clean-machine CI capstone.
 **Effort**: ~one focused unit per adapter; pi is the wildcard.
 **Depends on**: Phase 1 (core + contract).

@@ -31,6 +31,7 @@ def _render(claude_dir):
         "CODEX_DIR": str(base / ".codex-absent"),
         "OPENCODE_DIR": str(base / ".opencode-absent"),
         "CRUSH_DIR": str(base / ".crush-absent"),
+        "PI_DIR": str(base / ".pi-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 

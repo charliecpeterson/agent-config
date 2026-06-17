@@ -4,5 +4,6 @@ from .claude import ClaudeAdapter
 from .codex import CodexAdapter
 from .crush import CrushAdapter
 from .opencode import OpencodeAdapter
+from .pi import PiAdapter
 
-__all__ = ["ClaudeAdapter", "CodexAdapter", "CrushAdapter", "OpencodeAdapter"]
+__all__ = ["ClaudeAdapter", "CodexAdapter", "CrushAdapter", "OpencodeAdapter", "PiAdapter"]
