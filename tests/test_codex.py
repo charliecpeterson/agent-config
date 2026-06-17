@@ -102,5 +102,24 @@ class CodexSkillsTest(unittest.TestCase):
             tomllib.loads(second)                                # still valid TOML
 
 
+class CodexMcpTest(unittest.TestCase):
+    def test_mcp_registered_alongside_skills_one_block(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            codex = base / ".codex"
+            codex.mkdir()
+            _run(base, codex_dir=codex)
+
+            text = (codex / "config.toml").read_text()
+            self.assertEqual(text.count(">>> agent-config managed"), 1)  # one block
+            data = tomllib.loads(text)
+            servers = data.get("mcp_servers", {})
+            self.assertIn("transcribemcp", servers)  # manifest targets it at codex
+            self.assertTrue(servers["transcribemcp"]["command"].endswith("transcribemcp-run"))
+            self.assertNotIn("~", servers["transcribemcp"]["command"])  # expanded
+            self.assertGreaterEqual(len(data["skills"]["config"]), 1)  # coexists with skills
+
+
 if __name__ == "__main__":
     unittest.main()

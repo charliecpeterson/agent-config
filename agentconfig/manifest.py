@@ -23,12 +23,24 @@ class Harness:
 
 
 @dataclass(frozen=True)
+class Mcp:
+    name: str
+    command: str
+    args: tuple[str, ...]
+    targets: frozenset[str]   # harness names, or "*" for all
+
+    def targets_harness(self, harness: str) -> bool:
+        return "*" in self.targets or harness in self.targets
+
+
+@dataclass(frozen=True)
 class Manifest:
     repo_name: str
     rule_files: tuple[str, ...]
     claude_preamble: str
     portable_skills: frozenset[str]
     harnesses: dict[str, Harness]
+    mcps: tuple[Mcp, ...]
 
 
 def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
@@ -73,12 +85,25 @@ def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
     if "claude" not in harnesses:
         raise ManifestError("[harness.claude] is required")
 
+    mcps = []
+    for name, m in data.get("mcp", {}).items():
+        cmd = m.get("command")
+        if not cmd:
+            raise ManifestError(f"[mcp.{name}] missing command")
+        mcps.append(Mcp(
+            name=name,
+            command=cmd,
+            args=tuple(m.get("args", [])),
+            targets=frozenset(m.get("targets", ["*"])),
+        ))
+
     return Manifest(
         repo_name=repo_name,
         rule_files=rule_files,
         claude_preamble=preamble,
         portable_skills=portable,
         harnesses=harnesses,
+        mcps=tuple(mcps),
     )
 
 

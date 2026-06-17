@@ -11,6 +11,7 @@ reconciler + TOML writer in the next increment.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from ..adapter import Adapter
@@ -18,7 +19,7 @@ from ..manifest import Manifest
 from ..reconcile import apply_managed_block
 from ..render import RenderContext
 from ..rules import render_agents_md
-from ..tomlfmt import skills_config_block
+from ..tomlfmt import mcp_servers_block, skills_config_block
 
 
 class CodexAdapter(Adapter):
@@ -33,7 +34,24 @@ class CodexAdapter(Adapter):
 
     def emit(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         self._emit_rules(manifest, repo_root, ctx)
-        self._emit_skills(manifest, repo_root, ctx)
+        # All config.toml content goes in ONE managed block (skills + MCP), so the
+        # markers bound a single region and re-runs replace it cleanly.
+        blocks: list[str] = []
+        skill_paths = self._copy_skills(manifest, repo_root, ctx)
+        if skill_paths:
+            blocks.append(skills_config_block(skill_paths))
+        servers = self._mcp_servers(manifest)
+        if servers:
+            blocks.append(mcp_servers_block(servers))
+        if blocks:
+            apply_managed_block(
+                ctx, self.config_dir / "config.toml",
+                "\n\n".join(blocks),
+                harness="codex", asset="config",
+            )
+        # Hooks: GAP. The Claude hook scripts are bound to Claude's hook I/O
+        # contract (.tool_input.* in, hookSpecificOutput out); run by Codex they
+        # silently no-op. Registering them would be a false safety signal (D3).
 
     def _emit_rules(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         ctx.write_file(
@@ -42,9 +60,9 @@ class CodexAdapter(Adapter):
             harness="codex", asset="rules", source_ref="generated",
         )
 
-    def _emit_skills(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
-        """Copy the portable skills into ~/.codex/skills and register their paths
-        in config.toml (Codex does NOT read ~/.agents/skills — the latent bug)."""
+    def _copy_skills(self, manifest: Manifest, repo_root, ctx: RenderContext) -> list[str]:
+        """Copy portable skills into ~/.codex/skills, return their paths to
+        register (Codex does NOT read ~/.agents/skills — the latent bug)."""
         repo_root = Path(repo_root)
         paths: list[str] = []
         for name in sorted(manifest.portable_skills):
@@ -54,9 +72,13 @@ class CodexAdapter(Adapter):
             dest = self.config_dir / "skills" / name
             ctx.copy_path(src, dest, harness="codex", asset="skills")
             paths.append(str(dest))
-        if paths:
-            apply_managed_block(
-                ctx, self.config_dir / "config.toml",
-                skills_config_block(paths),
-                harness="codex", asset="skills",
-            )
+        return paths
+
+    def _mcp_servers(self, manifest: Manifest) -> list[tuple[str, str, tuple[str, ...]]]:
+        """MCPs the manifest targets at Codex, as (name, command, args). The
+        command points at a wrapper; secrets never enter the config (D4)."""
+        out = []
+        for m in manifest.mcps:
+            if m.targets_harness("codex"):
+                out.append((m.name, os.path.expanduser(m.command), m.args))
+        return out

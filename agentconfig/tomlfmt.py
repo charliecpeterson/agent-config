@@ -20,3 +20,15 @@ def skills_config_block(paths: list[str]) -> str:
     for p in paths:
         out += ["[[skills.config]]", f"path = {toml_str(p)}", "enabled = true", ""]
     return "\n".join(out).rstrip()
+
+
+def mcp_servers_block(servers: list[tuple[str, str, tuple[str, ...]]]) -> str:
+    """`[mcp_servers.<name>]` tables. Each tuple is (name, command, args)."""
+    out: list[str] = []
+    for name, command, args in servers:
+        out.append(f"[mcp_servers.{name}]")
+        out.append(f"command = {toml_str(command)}")
+        if args:
+            out.append("args = [" + ", ".join(toml_str(a) for a in args) + "]")
+        out.append("")
+    return "\n".join(out).rstrip()

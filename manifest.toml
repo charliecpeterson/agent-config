@@ -47,3 +47,17 @@ strategy = "separate-file"   # copies into ~/.claude; settings.json is a copy
 config_dir = "~/.codex"
 strategy = "keyed-merge"     # config.toml is shared; AGENTS.md is a separate file
 tested_against = "rust-v0.140.0"
+
+# MCP servers to auto-register into each harness's native config (D4).
+# `targets` = harness names, or ["*"] for all. `command` is the launch command
+# (a ~/mcps/bin/<name>-run wrapper, or an explicit command + args). Secrets stay
+# in the MCP's own .env — never in a generated config. Add your own here; the
+# wrapper-based ones below are examples. (Claude registration stays manual via
+# `claude mcp add --scope local`; targeting Claude here is for future use.)
+[mcp.transcribemcp]
+command = "~/mcps/bin/transcribemcp-run"
+targets = ["codex"]
+
+[mcp.comfyui_mcp]
+command = "~/mcps/bin/comfyui_mcp-run"
+targets = ["codex"]

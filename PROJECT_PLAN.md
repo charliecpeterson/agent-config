@@ -345,16 +345,25 @@ AGENTS.md renderer + Codex rules adapter landed.
   `path` in `config.toml`; Codex does NOT read `~/.agents/skills` (the
   latent bug). MCP = `[mcp_servers.<id>]`; hooks = `[hooks.<Event>]`
   matcher groups.
-- [~] **Codex** adapter: **rules done** — shared `rules.render_agents_md`
-  + `adapters/codex.py` generate `~/.codex/AGENTS.md` (separate file, no
-  merge); wired into the generator (skip-absent), tested, verified live
-  (idempotent). **Remaining (needs the TOML writer + keyed-merge):**
-  skills→`.codex/skills`+`[[skills.config]]` (the latent-bug fix),
-  `[mcp_servers]`, `[hooks]`, `[apps]` perms. Codex AGENTS.md flatten
-  removed from install.sh bash.
-- [ ] **Next infra increment**: minimal stdlib TOML writer + keyed-merge
-  reconciler (`reconcile.py`) + sentinel-key (OQ1) — unblocks every
-  `config.toml`/JSON asset type for Codex and the rest.
+- [~] **Codex** adapter — rules, skills, MCP done; hooks = gap; perms TODO.
+  - [x] **rules** → `~/.codex/AGENTS.md` (separate file, shared renderer).
+  - [x] **skills** → copied to `~/.codex/skills` + `[[skills.config]]`
+    paths (the latent-bug fix; Codex doesn't read `~/.agents/skills`).
+  - [x] **MCP** → `[mcp_servers.<name>]` from manifest `[mcp.*]` with D4
+    per-MCP targeting; command = wrapper, no secrets. Verified live: our
+    servers coexist with the user's existing `mcp_servers`.
+  - [x] **Infra**: `reconcile.apply_managed_block` (comment-preserving
+    TOML managed block — config.toml is co-managed by Codex + hand-edited;
+    proven to preserve `model`/`[projects.*]`/existing `mcp_servers`
+    byte-for-byte) + `tomlfmt` bounded emit (no arbitrary round-trip).
+    D5 refinement: TOML→managed-block, JSON→keyed-merge (later).
+  - [ ] **hooks = NAMED GAP (D3 fail-safe).** The Claude hook scripts are
+    bound to Claude's hook I/O contract (`.tool_input.*` in,
+    `hookSpecificOutput` out); run by Codex they silently no-op. Shipping
+    them = false safety signal. Porting needs harness-aware scripts — a
+    deliberate separate effort, not "register the hook."
+  - [ ] **permissions** (`[apps]` approval modes) — the highest-risk
+    adapter; deny-floor round-trip + fail-safe gap rule (OQ3). TODO.
 - [ ] **opencode** adapter (`AGENTS.md`, `agent/subagents/`, mcp,
       `commands/`, wildcard perms). Verify `~/.agents/skills` read.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`
