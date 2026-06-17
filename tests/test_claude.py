@@ -21,10 +21,15 @@ REPO = Path(__file__).resolve().parent.parent
 
 def _render(claude_dir):
     claude_dir = Path(claude_dir)
+    base = claude_dir.parent
     return run(REPO, env={
         **os.environ,
         "CLAUDE_DIR": str(claude_dir),
-        "AGENT_CONFIG_STATE": str(claude_dir.parent / "state.json"),
+        # Point every other harness dir at a non-existent temp path so this
+        # Claude-focused run skips them (skip-absent) and never touches the
+        # real ~/.codex etc.
+        "CODEX_DIR": str(base / ".codex-absent"),
+        "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 
 

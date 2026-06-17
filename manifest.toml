@@ -42,3 +42,8 @@ portable = [
 [harness.claude]
 config_dir = "~/.claude"
 strategy = "separate-file"   # copies into ~/.claude; settings.json is a copy
+
+[harness.codex]
+config_dir = "~/.codex"
+strategy = "keyed-merge"     # config.toml is shared; AGENTS.md is a separate file
+tested_against = "rust-v0.140.0"

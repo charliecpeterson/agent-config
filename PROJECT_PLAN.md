@@ -337,9 +337,24 @@ state store + stale report landed. Phase 2 (other adapters) is next.
 **Effort**: the bulk of net-new code — done bar the state store.
 
 ### Phase 2: Remaining adapters, native-first, one at a time
-- [ ] **Codex** adapter (first — highest parity, fixes the `~/.agents/
-      skills` latent bug via `.codex/skills`/`[skills]`; `[agents]`,
-      `[mcp_servers]`, `[hooks]`, `[apps]` perms). Verify global AGENTS.md.
+**In progress 2026-06-17.** Verification done for Codex (below); shared
+AGENTS.md renderer + Codex rules adapter landed.
+- **Verify-cells confirmed (Codex, current docs 2026-06)**: global
+  `~/.codex/AGENTS.md` IS read (standard discovery, not flag-gated — the
+  install.sh flatten was correct). Skills register via `[[skills.config]]`
+  `path` in `config.toml`; Codex does NOT read `~/.agents/skills` (the
+  latent bug). MCP = `[mcp_servers.<id>]`; hooks = `[hooks.<Event>]`
+  matcher groups.
+- [~] **Codex** adapter: **rules done** — shared `rules.render_agents_md`
+  + `adapters/codex.py` generate `~/.codex/AGENTS.md` (separate file, no
+  merge); wired into the generator (skip-absent), tested, verified live
+  (idempotent). **Remaining (needs the TOML writer + keyed-merge):**
+  skills→`.codex/skills`+`[[skills.config]]` (the latent-bug fix),
+  `[mcp_servers]`, `[hooks]`, `[apps]` perms. Codex AGENTS.md flatten
+  removed from install.sh bash.
+- [ ] **Next infra increment**: minimal stdlib TOML writer + keyed-merge
+  reconciler (`reconcile.py`) + sentinel-key (OQ1) — unblocks every
+  `config.toml`/JSON asset type for Codex and the rest.
 - [ ] **opencode** adapter (`AGENTS.md`, `agent/subagents/`, mcp,
       `commands/`, wildcard perms). Verify `~/.agents/skills` read.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`

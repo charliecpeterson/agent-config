@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import manifest as manifest_mod
 from . import state as state_mod
-from .adapters import ClaudeAdapter
+from .adapters import ClaudeAdapter, CodexAdapter
 from .manifest import Manifest
 from .model import RunResult
 from .render import RenderContext
@@ -26,10 +26,20 @@ def _state_path(env) -> Path:
     return Path(p) if p else Path.home() / ".agent-config" / "state.json"
 
 
+def _harness_dir(manifest: Manifest, env, name: str) -> Path:
+    """Config dir for a harness, with `<NAME>_DIR` env override (matches install.sh)."""
+    override = env.get(f"{name.upper()}_DIR")
+    base = override or manifest.harnesses[name].config_dir
+    return Path(base).expanduser()
+
+
 def build_adapters(manifest: Manifest, env) -> list:
-    """The adapters to consider this run. Phase 2 appends Codex/opencode/Crush/pi."""
-    claude_dir = env.get("CLAUDE_DIR") or manifest.harnesses["claude"].config_dir
-    return [ClaudeAdapter(Path(claude_dir).expanduser())]
+    """The adapters to consider this run (each is_present()-gated). opencode/Crush/
+    pi land in later increments."""
+    adapters = [ClaudeAdapter(_harness_dir(manifest, env, "claude"))]
+    if "codex" in manifest.harnesses:
+        adapters.append(CodexAdapter(_harness_dir(manifest, env, "codex")))
+    return adapters
 
 
 def run(repo_root, *, dry_run: bool = False, env=None, stamp: str | None = None) -> RunResult:

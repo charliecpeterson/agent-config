@@ -757,9 +757,11 @@ prune_dangling "$AGENTS_SKILLS_DIR"
 # ---------------------------------------------------------------------------
 echo
 echo "Other agent CLIs (Codex / pi / opencode / Crush):"
-echo "  Portable skills copied into $AGENTS_SKILLS_DIR (Codex, pi, opencode read it natively)."
+echo "  Portable skills copied into $AGENTS_SKILLS_DIR (pi, opencode read it natively;"
+echo "  Codex registers skill paths in config.toml instead — handled by the generator)."
 configure_crush_skills_path
-write_flattened_rules "$CODEX_DIR/AGENTS.md" "global rules for Codex"
+# Codex AGENTS.md is now rendered by the agentconfig generator (codex adapter).
+# opencode AGENTS.md stays bash until its adapter lands.
 write_flattened_rules "$OPENCODE_DIR/AGENTS.md" "global rules for opencode"
 echo "  note     pi has no global-rules file; it gets skills only (per-project AGENTS.md for rules)"
 
