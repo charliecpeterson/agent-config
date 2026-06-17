@@ -39,7 +39,7 @@ OPENCODE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 
 # Which accelerated backend extras this machine can use. Apple Silicon -> mlx,
 # an NVIDIA box -> cuda, anything else -> cpu. Drives the per-capability `uv`
-# extras in PERSONAL_MCPS so e.g. meetingmcp gets cohere-mlx on the Mac and a
+# extras in PERSONAL_MCPS so e.g. transcribemcp gets cohere-mlx on the Mac and a
 # CUDA torch on the 4090 without per-machine hand-editing.
 detect_compute() {
   if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
@@ -92,12 +92,15 @@ PERSONAL_MCPS=(
   "comfyui_mcp|https://github.com/charliecpeterson/comfyui_mcp.git"
   "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
   "h2mcp|https://github.com/charliecpeterson/h2mcp.git"
-  # Extras must match the .env: whisperx backend + DIARIZE=true + the silero
-  # VAD windowing path => whisperx,vad,diarize. ctranslate2 has no Metal backend,
-  # so whisperx runs on CPU on Apple Silicon (cuda on the 4090). Swap in
-  # cohere,cohere-mlx,vad,diarize here if you set TRANSCRIPTION_BACKEND=cohere
-  # for MLX-accelerated transcription on the Mac.
-  "meetingmcp|https://github.com/charliecpeterson/meetingmcp.git|meetingtool|mlx=whisperx,vad,diarize|cuda=whisperx,vad,diarize|cpu=whisperx,vad,diarize"
+  # transcribemcp: thin local transcription MCP (audio in, transcript JSON out).
+  # whisperx backend + pyannote diarization => whisperx,diarize. The vad extra
+  # (silero-vad) is only strictly needed for TRANSCRIPTION_BACKEND=cohere, which
+  # has no native timestamps; kept here so a backend swap needs no re-sync.
+  # ctranslate2 has no Metal backend, so whisperx runs on CPU on Apple Silicon
+  # (cuda on the 4090). Swap in cohere,cohere-mlx,vad,diarize here if you set
+  # TRANSCRIPTION_BACKEND=cohere for MLX-accelerated transcription on the Mac.
+  # Entrypoint defaults to the name (transcribemcp), so it's omitted below.
+  "transcribemcp|https://github.com/charliecpeterson/transcribemcp.git|mlx=whisperx,vad,diarize|cuda=whisperx,vad,diarize|cpu=whisperx,vad,diarize"
 )
 
 # Personal repos to have on hand for editing. Plain `git clone` (no build step),
