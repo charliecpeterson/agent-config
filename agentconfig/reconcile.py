@@ -11,6 +11,7 @@ comments to lose) — that lands with those adapters.
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -40,4 +41,45 @@ def apply_managed_block(
     ctx.write_file(
         config_path, new, harness=harness, asset=asset,
         kind="merged", source_ref="managed-block", owned_keys=("managed-block",),
+    )
+
+
+def _deep_merge(base: dict, updates: dict) -> dict:
+    out = dict(base)
+    for k, v in updates.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def keyed_merge_json(
+    ctx: RenderContext, config_path, updates: dict, *, harness: str, asset: str
+) -> None:
+    """Deep-merge `updates` into a JSON config, preserving everything else.
+
+    For plain-JSON harness configs (opencode/Crush). If the file has JSONC
+    comments (won't parse), we refuse rather than clobber — fail-safe, reported.
+    Reformats whitespace but preserves all content and key order.
+    """
+    config_path = Path(config_path)
+    existing: dict = {}
+    if config_path.is_file() and not config_path.is_symlink():
+        text = config_path.read_text()
+        if text.strip():
+            try:
+                existing = json.loads(text)
+            except json.JSONDecodeError:
+                ctx.record_failure(
+                    f"{harness}:{asset}",
+                    RuntimeError(f"{config_path} is not plain JSON (JSONC comments?); "
+                                 "skipped to avoid clobbering"),
+                )
+                return
+    merged = _deep_merge(existing, updates)
+    ctx.write_file(
+        config_path, json.dumps(merged, indent=2) + "\n",
+        harness=harness, asset=asset, kind="merged",
+        source_ref="keyed-merge", owned_keys=tuple(updates),
     )

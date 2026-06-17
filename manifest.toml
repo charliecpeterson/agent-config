@@ -48,6 +48,11 @@ config_dir = "~/.codex"
 strategy = "keyed-merge"     # config.toml is shared; AGENTS.md is a separate file
 tested_against = "rust-v0.140.0"
 
+[harness.opencode]
+config_dir = "~/.config/opencode"
+strategy = "keyed-merge"     # opencode.json (plain JSON); AGENTS.md separate
+tested_against = "2026-06"
+
 # MCP servers to auto-register into each harness's native config (D4).
 # `targets` = harness names, or ["*"] for all. `command` is the launch command
 # (a ~/mcps/bin/<name>-run wrapper, or an explicit command + args). Secrets stay
@@ -56,7 +61,7 @@ tested_against = "rust-v0.140.0"
 # `claude mcp add --scope local`; targeting Claude here is for future use.)
 [mcp.transcribemcp]
 command = "~/mcps/bin/transcribemcp-run"
-targets = ["codex"]
+targets = ["codex", "opencode"]
 
 [mcp.comfyui_mcp]
 command = "~/mcps/bin/comfyui_mcp-run"

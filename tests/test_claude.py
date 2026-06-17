@@ -29,6 +29,7 @@ def _render(claude_dir):
         # Claude-focused run skips them (skip-absent) and never touches the
         # real ~/.codex etc.
         "CODEX_DIR": str(base / ".codex-absent"),
+        "OPENCODE_DIR": str(base / ".opencode-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 

@@ -372,8 +372,22 @@ AGENTS.md renderer + Codex rules adapter landed.
     structurally impossible here). Opt-in profile generation deferred.
   - **Codex adapter COMPLETE**: rules + skills + MCP ported; hooks +
     permissions are honest, documented gaps.
-- [ ] **opencode** adapter (`AGENTS.md`, `agent/subagents/`, mcp,
-      `commands/`, wildcard perms). Verify `~/.agents/skills` read.
+- [~] **opencode** adapter — rules + MCP + skills done; perms/subagents/
+      commands next.
+  - **Verified (2026-06)**: `~/.config/opencode/opencode.json` (plain JSON
+    /JSONC); reads `~/.agents/skills` **natively** (so skills need no
+    adapter work — already exported); permission model is command-pattern
+    `allow`/`ask`/`deny` (the "closest to Claude" — bash denies CAN port).
+  - [x] **rules** → `~/.config/opencode/AGENTS.md` (shared renderer).
+  - [x] **MCP** → `opencode.json` `mcp` via **JSON keyed-merge** (new
+    infra: deep-merge, JSONC-comment fail-safe). Verified live: preserves
+    `provider.vllm`/`model`/existing `office-*` servers, adds ours.
+  - [x] **skills** → native (`~/.agents/skills`); nothing to do.
+  - [ ] **permissions** (the real win — port bash allow/deny patterns from
+    settings.json; `Read()` credential denies may be a partial gap),
+    **subagents** (`agent/subagents/`), **commands**. Next.
+  - opencode AGENTS.md flatten removed from install.sh (now generator);
+    the unused `write_flattened_rules` bash function deleted.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`
       mcp + skills_paths + Permissions struct). Verify subagents/hooks.
 - [ ] **pi** adapter LAST (verify identity `@mariozechner/pi-coding-agent`
