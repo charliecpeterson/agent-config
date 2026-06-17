@@ -1,8 +1,14 @@
-# claude-config
+# agent-config
 
-Personal Claude Code configuration: global instructions, coding style,
-communication preferences, engineering judgment, and skills. One repo, cloned
-to every machine, symlinked into `~/.claude/` by `install.sh`.
+Personal AI-agent configuration: global instructions, coding style,
+communication preferences, engineering judgment, skills, and sub-agents. One
+repo, cloned to every machine; `install.sh` **copies** it into `~/.claude/`
+(and exports the portable pieces to the other agent CLIs).
+
+> Renamed from `claude-config`. A larger redesign — one source of truth
+> rendered to each harness (Claude Code, Codex, opencode, Crush, pi) by a
+> generator — is planned in `PROJECT_PLAN.md`. This README describes what's
+> built today.
 
 ## Layout
 
@@ -16,9 +22,10 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 ├── settings.json       Synced permissions baseline (allow read-only, deny irreversibles)
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
 ├── agents/             Custom sub-agents shared across skills (code-review-deep, deep-planner, writing-architect, llm-council)
-├── hooks/              Lifecycle hook scripts + status line (symlinked to ~/.claude/hooks/)
+├── hooks/              Lifecycle hook scripts + status line (copied to ~/.claude/hooks/)
 ├── notes/              Research notes and scratch documents (not installed anywhere)
-├── install.sh          Symlinks files into ~/.claude/
+├── PROJECT_PLAN.md     Design + roadmap for the multi-harness redesign
+├── install.sh          Copies config into ~/.claude/ (and cross-agent dirs)
 └── .gitignore
 ```
 
@@ -27,34 +34,40 @@ allowing common read-only commands (git inspection, grep/rg, Slurm queries) and
 denying irreversibles (force-push, history rewrites, reading credential files);
 the `hooks/` wiring (secret-commit guard, format-on-edit, status line); and the
 notification channel. All of it is machine-independent — the hook commands
-resolve through the `~/.claude/hooks/` symlink.
+resolve through the copied `~/.claude/hooks/` directory.
 Machine-specific state (enabled plugins, model choice, extra permissions) goes
 in `~/.claude/settings.local.json`, which Claude Code merges automatically and
-which is never synced. Two consequences of the symlink: on a machine's first
-install, merge any keys from the backed-up old `settings.json` into
-`settings.local.json`; and UI actions that write settings (`/model`, plugin
-toggles) will dirty the repo file — move those keys to `settings.local.json`
-and `git checkout settings.json`.
+which is never synced. On a machine's first install, merge any keys from the
+backed-up old `settings.json` into `settings.local.json`; and since UI actions
+that write settings (`/model`, plugin toggles) edit the installed *copy*, not
+the repo, just re-run `./install.sh` to restore the synced baseline.
+
+## Why copies, not symlinks
+
+`install.sh` copies files into place rather than symlinking them. That keeps
+`~/.claude/` **decoupled from where this repo lives** — move, rename, or
+re-clone the repo and your config keeps working. The tradeoff: edits in the
+repo aren't live until you re-run the installer (the same model the personal
+MCPs already use). `./install.sh --config-only` re-applies config/skills/rules
+without touching the MCP checkouts.
 
 ## Install on a new machine
 
 ```bash
-git clone <repo-url> ~/projects/claude-config
-cd ~/projects/claude-config
+git clone <repo-url> ~/projects/agent-config
+cd ~/projects/agent-config
 ./install.sh
 ```
 
 The script:
-- Symlinks `~/.claude/CLAUDE.md` → `~/projects/claude-config/CLAUDE.md` (and the
-  same for `userprofile.md`, `style.md`, `communication.md`, `engineering.md`).
-- Symlinks each skill folder under `~/.claude/skills/<name>` → the matching
-  folder in this repo.
-- Symlinks each sub-agent file under `~/.claude/agents/<name>.md` → the matching
-  file in this repo's `agents/` folder. Sub-agents are shared infrastructure
-  used by skills like `deep-planner` and `writing-architect`.
-- Symlinks `~/.claude/hooks/` → this repo's `hooks/` folder, so the hook and
-  status-line scripts that `settings.json` references resolve on every machine.
-  See `hooks/README.md` for what each one does.
+- Copies `~/.claude/CLAUDE.md` from this repo (and the same for `userprofile.md`,
+  `style.md`, `communication.md`, `engineering.md`, `settings.json`).
+- Copies each skill folder to `~/.claude/skills/<name>`.
+- Copies each sub-agent file to `~/.claude/agents/<name>.md`. Sub-agents are
+  shared infrastructure used by skills like `deep-planner` and `writing-architect`.
+- Copies the `hooks/` folder to `~/.claude/hooks/`, so the hook and status-line
+  scripts that `settings.json` references resolve on every machine. See
+  `hooks/README.md` for what each one does.
 - Also exports the *portable* skills (those with no Claude-Code sub-agent or MCP
   dependency — see `PORTABLE_SKILLS` in `install.sh`) to `~/.agents/skills/`, the
   directory Codex, pi, and opencode read natively. Crush is pointed at the same
@@ -65,17 +78,15 @@ The script:
   don't resolve the `@imports` in `CLAUDE.md`. Regenerated each run; a hand-written
   file is backed up once. (pi has no global-rules file, so it gets skills only;
   Crush reads project-level `AGENTS.md`.)
-- Backs up any existing real file at the target path to
-  `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
-- Skips files that are already correctly symlinked, so the script is safe
-  to re-run.
-- Prunes symlinks that point into this repo but whose target no longer exists
-  (skills or agents deleted from the repo).
+- Backs up any *changed* real file at the target path to
+  `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it; unchanged files
+  are left untouched (idempotent re-runs).
 - Then prompts, once each, to clone the personal MCP repos (`PERSONAL_MCPS`)
   to `~/mcps/<name>` and `uv sync` them (not registered with Claude Code;
   see "Personal MCP servers" below), and to install the `security-review-deep`
-  tools. Run without a terminal, it does the symlinks and takes each prompt's
-  default (clone MCPs, skip security tools).
+  tools. Run without a terminal, it does the copies and takes each prompt's
+  default (clone MCPs, skip security tools). Pass `--config-only` to stop after
+  the config and skip MCP/repo cloning entirely.
 
 Restart Claude Code after the first install so it picks up the new skills.
 
@@ -96,6 +107,7 @@ scope, so its tools load there and nowhere else:
 claude mcp add --scope local edamcp -- uv run --directory ~/mcps/edamcp edamcp
 claude mcp add --scope local chemtools -- uv run --directory ~/mcps/chemtoolsmcp chemtoolsmcp
 claude mcp add --scope local comfyui -- uv run --directory ~/mcps/comfyui_mcp comfyui_mcp
+claude mcp add --scope local transcribe -- ~/mcps/bin/transcribemcp-run
 
 # office-google-mac-mcp is a monorepo; each app is its own server
 claude mcp add --scope local word -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp word
@@ -116,9 +128,9 @@ pattern in your projects.
 
 ## Editing
 
-Edit files directly in this repo. The symlinks mean changes take effect
-immediately in `~/.claude/`. Commit and push when you're happy; on other
-machines, `git pull` and the changes propagate.
+Edit files in this repo, then re-run `./install.sh` (or `--config-only`) to
+copy the changes into place — the same way you apply an MCP update. Commit and
+push when you're happy; on other machines, `git pull` then `./install.sh`.
 
 ## Skills
 

@@ -181,6 +181,26 @@ format — with a hardened installer and a harness-neutral repo name.
     TOML/JSON configs (can't symlink a merged file → re-run to update).
   - Skip-absent harnesses (render only what's installed; never error).
 
+- **[2026-06-17] REVISION: copy not symlink for Claude; rename done early**
+  - **Supersedes** the hidden decision "symlink-live for Claude." Claude
+    assets are now **copied** into `~/.claude`, like every other harness
+    (you can't symlink a merged config, so copy makes all placement
+    uniform — Claude stops being the one special case). Edits apply on
+    re-run, not live; an opt-in `--link`/dev mode for live authoring is
+    deferred to the generator (Phase 1).
+  - **Why**: the symlink coupled `~/.claude` to the repo's path (35 live
+    symlinks); a stable snapshot is also safer for a repo edited by AI
+    agents (branch/stash/half-edit doesn't mutate the running config).
+  - **Done early (ahead of Phase 3)**: converted `install.sh`
+    `link_file`→`place_file` (copy, idempotent, backup-on-change), added
+    `--config-only`, ran it to convert all 35 symlinks to copies, then
+    moved the repo `~/projects/claude-config`→`~/projects/agent-config`
+    and re-pointed origin to `github.com/charliecpeterson/agent-config`.
+    The copy conversion is what made the move safe (verified `~/.claude`
+    survived the move). Old `claude-config` GitHub repo now orphaned.
+  - **Remnant**: the deeper multi-harness render is still Phase 1–2; the
+    Phase-1 generator inherits this copy decision.
+
 ## Open Questions (the forks to map)                       (always)
 1. **Canonical source format** (most upstream): keep authoring the
    `*.md` rule files + generate per-harness, or flip to AGENTS.md as

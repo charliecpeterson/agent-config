@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Symlink this repo's Claude Code config files into ~/.claude/ so the same
+# Copy this repo's Claude Code config files into ~/.claude/ so the same
 # CLAUDE.md, userprofile.md, style.md, communication.md, engineering.md,
-# skills, and sub-agents are active wherever the repo is cloned. Existing real
-# files at a target path
-# are backed up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS first.
+# skills, and sub-agents are active wherever the repo is cloned. Copies (not
+# symlinks) keep ~/.claude decoupled from where the repo lives — move or rename
+# the repo and the config keeps working; re-run after a `git pull` to apply
+# updates (same model as the MCPs). A changed real file at a target path is
+# backed up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS before being replaced.
 #
-# Portable skills (no Claude-Code sub-agent / MCP dependency) are ALSO linked
+# Portable skills (no Claude-Code sub-agent / MCP dependency) are ALSO copied
 # into ~/.agents/skills/ so Codex, pi, and opencode pick them up; Crush is
 # pointed at the same dir via skills_paths in its crush.json. The global rules
 # (userprofile/style/communication/engineering) are concatenated into
@@ -18,10 +20,11 @@
 # install the security-review-deep tools. With no terminal attached it takes
 # each prompt's default and does not block.
 #
-# Re-runnable. Already-linked files and already-cloned repos are left as-is.
+# Re-runnable. Unchanged files and already-cloned repos are left as-is.
 #
 # Usage:
 #   ./install.sh          # config + skills, then prompt for MCPs and security tools
+#   ./install.sh --config-only  # config + skills + cross-agent rules; no MCP/repo cloning
 #   ./install.sh --check  # verify install + report missing tools
 #   ./install.sh --help   # show this usage
 
@@ -71,6 +74,7 @@ PORTABLE_SKILLS=(
 )
 
 CHECK_ONLY=0
+CONFIG_ONLY=0
 
 # Personal MCP servers to make available on this machine. For each, the script
 # clones to ~/mcps/<name>, `git pull`s an existing clone, runs `uv sync` (with
@@ -223,6 +227,7 @@ mcp_is_synced() {
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK_ONLY=1 ;;
+    --config-only) CONFIG_ONLY=1 ;;
     -h|--help)
       sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -242,25 +247,41 @@ mkdir -p "$AGENTS_SKILLS_DIR"
 # Agents are instructed (style.md) to put scratch output here, not /tmp.
 mkdir -p "$HOME/scratch"
 
-link_file() {
+# Copy (not symlink) repo content into place. Copies decouple the installed
+# config from where this repo lives: you can move/rename/relocate the repo and
+# ~/.claude keeps working until you next run. Re-running after a `git pull` is
+# how you apply updates — the same model the MCPs already use. Unchanged targets
+# are left untouched (idempotent no-op); a changed real file is backed up before
+# it's replaced. A leftover symlink from the old install model is replaced with
+# a real copy.
+_same_content() {
+  local a="$1" b="$2"
+  if [[ -d "$a" ]]; then
+    diff -rq "$a" "$b" >/dev/null 2>&1
+  else
+    cmp -s "$a" "$b"
+  fi
+}
+
+place_file() {
   local src="$1" dest="$2"
   if [[ -L "$dest" ]]; then
-    local current
-    current="$(readlink "$dest")"
-    if [[ "$current" == "$src" ]]; then
-      echo "  ok       $dest -> $src"
+    rm "$dest"
+    echo "  copy     $dest (was symlink)"
+  elif [[ -e "$dest" ]]; then
+    if _same_content "$src" "$dest"; then
+      echo "  ok       $dest"
       return
     fi
-    echo "  relink   $dest (was: $current)"
-    rm "$dest"
-  elif [[ -e "$dest" ]]; then
     local backup="${dest}.backup-${STAMP}"
     echo "  backup   $dest -> $backup"
+    rm -rf "$backup"
     mv "$dest" "$backup"
   else
     echo "  new      $dest"
   fi
-  ln -s "$src" "$dest"
+  mkdir -p "$(dirname "$dest")"
+  cp -R "$src" "$dest"
 }
 
 is_portable_skill() {
@@ -697,7 +718,7 @@ echo
 echo "Global config files:"
 for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
   if [[ -f "$REPO_DIR/$name" ]]; then
-    link_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
+    place_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
   fi
 done
 
@@ -708,29 +729,29 @@ for skill_dir in "$REPO_DIR/skills"/*/; do
   skill_name="$(basename "$skill_dir")"
   # Only treat as a skill if it contains a SKILL.md (skips containers like diffusion-skills/)
   if [[ -f "$skill_dir/SKILL.md" ]]; then
-    link_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
+    place_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
     if is_portable_skill "$skill_name"; then
-      link_file "${skill_dir%/}" "$AGENTS_SKILLS_DIR/$skill_name"
+      place_file "${skill_dir%/}" "$AGENTS_SKILLS_DIR/$skill_name"
     fi
   fi
 done
 
-# Custom sub-agents — flat .md files in agents/, symlinked into ~/.claude/agents/
+# Custom sub-agents — flat .md files in agents/, copied into ~/.claude/agents/
 if [[ -d "$REPO_DIR/agents" ]]; then
   echo
   echo "Agents:"
   for agent_file in "$REPO_DIR/agents"/*.md; do
     [[ -f "$agent_file" ]] || continue
-    link_file "$agent_file" "$CLAUDE_DIR/agents/$(basename "$agent_file")"
+    place_file "$agent_file" "$CLAUDE_DIR/agents/$(basename "$agent_file")"
   done
 fi
 
-# Hook + status-line scripts — one directory symlink so settings.json can
+# Hook + status-line scripts — copied to ~/.claude/hooks/ so settings.json can
 # reference ~/.claude/hooks/<script> on every machine regardless of repo path.
 if [[ -d "$REPO_DIR/hooks" ]]; then
   echo
   echo "Hooks:"
-  link_file "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"
+  place_file "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"
 fi
 
 prune_dangling "$CLAUDE_DIR/skills"
@@ -742,11 +763,19 @@ prune_dangling "$AGENTS_SKILLS_DIR"
 # ---------------------------------------------------------------------------
 echo
 echo "Other agent CLIs (Codex / pi / opencode / Crush):"
-echo "  Portable skills linked into $AGENTS_SKILLS_DIR (Codex, pi, opencode read it natively)."
+echo "  Portable skills copied into $AGENTS_SKILLS_DIR (Codex, pi, opencode read it natively)."
 configure_crush_skills_path
 write_flattened_rules "$CODEX_DIR/AGENTS.md" "global rules for Codex"
 write_flattened_rules "$OPENCODE_DIR/AGENTS.md" "global rules for opencode"
 echo "  note     pi has no global-rules file; it gets skills only (per-project AGENTS.md for rules)"
+
+# Config-only stops here: skip MCP/repo cloning + security tools. Useful after a
+# `git pull` to apply config changes without touching the MCP venvs.
+if [[ "$CONFIG_ONLY" -eq 1 ]]; then
+  echo
+  echo "config-only: skipping MCP/repo cloning and security tools."
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Personal MCP servers (code only; registered per-project, not globally)
