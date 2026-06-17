@@ -26,13 +26,15 @@ class RenderContext:
     # ---- public primitives adapters call -----------------------------------
 
     def write_file(
-        self, dest, content: str, *, harness: str, asset: str, source_ref: str = ""
+        self, dest, content: str, *, harness: str, asset: str, source_ref: str = "",
+        kind: str = "file", owned_keys: tuple[str, ...] = (),
     ) -> None:
-        """Place a generated text file (e.g. CLAUDE.md)."""
+        """Place a generated text file (CLAUDE.md, AGENTS.md) or a managed-block
+        config (`kind="merged"`). Same safety contract either way."""
         dest = Path(dest)
         if self._prepare(dest, unchanged=self._file_matches(dest, content)):
             self._do(lambda: self._atomic_write(dest, content))
-        self._record(harness, asset, dest, "file", source_ref)
+        self._record(harness, asset, dest, kind, source_ref, owned_keys)
 
     def copy_path(self, src, dest, *, harness: str, asset: str) -> None:
         """Copy a source file or directory into place."""
@@ -116,9 +118,9 @@ class RenderContext:
     def _log(self, verb: str, dest: Path) -> None:
         self.result.actions.append((verb, str(dest)))
 
-    def _record(self, harness, asset, dest, kind, source_ref) -> None:
+    def _record(self, harness, asset, dest, kind, source_ref, owned_keys=()) -> None:
         self.result.artifacts.append(
-            ManagedArtifact(harness, asset, str(dest), kind, source_ref)
+            ManagedArtifact(harness, asset, str(dest), kind, source_ref, tuple(owned_keys))
         )
 
     def record_failure(self, asset: str, exc: BaseException) -> None:

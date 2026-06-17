@@ -47,5 +47,60 @@ class CodexRulesTest(unittest.TestCase):
             self.assertEqual(res.failures, [])
 
 
+SEED_CONFIG = '''model = "gpt-5.4"
+personality = "pragmatic"
+notify = ["x", "turn-ended"]
+
+[projects."/Users/charlie/projects/orbitron"]
+trust_level = "trusted"
+
+[notice.model_migrations]
+"gpt-5.3-codex" = "gpt-5.4"
+'''
+
+
+class CodexSkillsTest(unittest.TestCase):
+    def test_skills_copied_and_registered_preserving_config(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            codex = base / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(SEED_CONFIG)
+            _run(base, codex_dir=codex)
+
+            # portable skills copied into ~/.codex/skills
+            self.assertTrue((codex / "skills" / "bug-hunter" / "SKILL.md").is_file())
+
+            text = (codex / "config.toml").read_text()
+            # co-managed content preserved verbatim
+            self.assertIn('personality = "pragmatic"', text)
+            self.assertIn('[projects."/Users/charlie/projects/orbitron"]', text)
+            self.assertIn('[notice.model_migrations]', text)
+            # valid TOML; our keys present, theirs untouched
+            data = tomllib.loads(text)
+            self.assertEqual(data["model"], "gpt-5.4")
+            self.assertEqual(data["projects"]["/Users/charlie/projects/orbitron"]["trust_level"], "trusted")
+            entries = data["skills"]["config"]
+            self.assertGreaterEqual(len(entries), 1)
+            self.assertTrue(all(e["enabled"] for e in entries))
+            self.assertTrue(all("/.codex/skills/" in e["path"] for e in entries))
+
+    def test_managed_block_idempotent_single_block(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            codex = base / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(SEED_CONFIG)
+            _run(base, codex_dir=codex)
+            first = (codex / "config.toml").read_text()
+            _run(base, codex_dir=codex)
+            second = (codex / "config.toml").read_text()
+            self.assertEqual(first, second)                      # idempotent
+            self.assertEqual(second.count(">>> agent-config managed"), 1)  # not duplicated
+            tomllib.loads(second)                                # still valid TOML
+
+
 if __name__ == "__main__":
     unittest.main()
