@@ -28,6 +28,7 @@ def _run(base: Path, *, oc_dir: Path):
         "CLAUDE_DIR": str(base / ".claude"),
         "CODEX_DIR": str(base / ".codex-absent"),
         "OPENCODE_DIR": str(oc_dir),
+        "CRUSH_DIR": str(base / ".crush-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 

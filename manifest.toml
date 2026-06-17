@@ -53,6 +53,11 @@ config_dir = "~/.config/opencode"
 strategy = "keyed-merge"     # opencode.json (plain JSON); AGENTS.md separate
 tested_against = "2026-06"
 
+[harness.crush]
+config_dir = "~/.config/crush"
+strategy = "keyed-merge"     # crush.json (plain JSON); CRUSH.md separate
+tested_against = "2026-06"
+
 # MCP servers to auto-register into each harness's native config (D4).
 # `targets` = harness names, or ["*"] for all. `command` is the launch command
 # (a ~/mcps/bin/<name>-run wrapper, or an explicit command + args). Secrets stay
@@ -61,7 +66,7 @@ tested_against = "2026-06"
 # `claude mcp add --scope local`; targeting Claude here is for future use.)
 [mcp.transcribemcp]
 command = "~/mcps/bin/transcribemcp-run"
-targets = ["codex", "opencode"]
+targets = ["codex", "opencode", "crush"]
 
 [mcp.comfyui_mcp]
 command = "~/mcps/bin/comfyui_mcp-run"

@@ -30,6 +30,7 @@ def _render(claude_dir):
         # real ~/.codex etc.
         "CODEX_DIR": str(base / ".codex-absent"),
         "OPENCODE_DIR": str(base / ".opencode-absent"),
+        "CRUSH_DIR": str(base / ".crush-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
     })
 

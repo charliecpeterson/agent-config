@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import manifest as manifest_mod
 from . import state as state_mod
-from .adapters import ClaudeAdapter, CodexAdapter, OpencodeAdapter
+from .adapters import ClaudeAdapter, CodexAdapter, CrushAdapter, OpencodeAdapter
 from .manifest import Manifest
 from .model import RunResult
 from .render import RenderContext
@@ -41,6 +41,8 @@ def build_adapters(manifest: Manifest, env) -> list:
         adapters.append(CodexAdapter(_harness_dir(manifest, env, "codex")))
     if "opencode" in manifest.harnesses:
         adapters.append(OpencodeAdapter(_harness_dir(manifest, env, "opencode")))
+    if "crush" in manifest.harnesses:
+        adapters.append(CrushAdapter(_harness_dir(manifest, env, "crush")))
     return adapters
 
 

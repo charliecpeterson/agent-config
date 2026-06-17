@@ -401,8 +401,18 @@ AGENTS.md renderer + Codex rules adapter landed.
     ported; subagents/hooks = gaps; commands N/A.
   - opencode AGENTS.md flatten removed from install.sh (now generator);
     the unused `write_flattened_rules` bash function deleted.
-- [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`
-      mcp + skills_paths + Permissions struct). Verify subagents/hooks.
+- [x] **Crush** adapter COMPLETE (built against docs; Crush not installed
+      here, so verified via temp-dir tests, skip-absent confirmed live).
+  - **Verified (2026-06)**: config `~/.config/crush/crush.json`; auto-loads
+    `~/.config/crush/CRUSH.md` for rules; reads `~/.agents/skills` +
+    `~/.claude/skills` natively; MCP `{type:"stdio", command, args, env}`;
+    permissions = `allowed_tools` name list (NO command patterns).
+  - [x] **rules** → `~/.config/crush/CRUSH.md` (separate file, shared
+    renderer) — fills the rules gap install.sh never wrote.
+  - [x] **MCP** → `crush.json` `mcp` keyed-merge (preserves user servers).
+  - [x] **skills** → native (`skills_paths` → `~/.agents/skills`).
+  - **permissions = gap** (allowed_tools can't express command denies, like
+    Codex — OQ3). **subagents/hooks = gap**.
 - [ ] **pi** adapter LAST (verify identity `@mariozechner/pi-coding-agent`
       + paths; Skills, AGENTS.md, MCP-via-extension shim).
 - [ ] Per-adapter: unit tests, permissions deny-floor round-trip check,
