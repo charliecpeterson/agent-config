@@ -1,136 +1,139 @@
 # agent-config
 
-Personal AI-agent configuration: global instructions, coding style,
-communication preferences, engineering judgment, skills, and sub-agents. One
-repo, cloned to every machine; `install.sh` **copies** it into `~/.claude/`
-(and exports the portable pieces to the other agent CLIs).
+One source of truth for my AI-agent setup — global instructions, coding style,
+skills, sub-agents, MCP servers, and permissions — **rendered into each
+harness's native config format** by a small generator. Edit once, run the
+installer, and the right files land for Claude Code, Codex, opencode, Crush,
+and pi.
 
-> Renamed from `claude-config`. A larger redesign — one source of truth
-> rendered to each harness (Claude Code, Codex, opencode, Crush, pi) by a
-> generator — is planned in `PROJECT_PLAN.md`. This README describes what's
-> built today.
+The content (the four rule files, `skills/`, `agents/`, `hooks/`,
+`settings.json`) is the source; every harness output is generated from it. No
+harness is privileged — Claude is just one adapter among five.
 
-## Layout
+## How it works
 
-```
-.
-├── CLAUDE.md           Global instructions (imports the four files below)
-├── userprofile.md      Personal profile: role, expertise boundaries (defer/joint/push-back), compute, references
-├── style.md            Coding style and conduct
-├── communication.md    Chat tone and format
-├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
-├── settings.json       Synced permissions baseline (allow read-only, deny irreversibles)
-├── skills/             One folder per skill (each contains SKILL.md + optional references/)
-├── agents/             Custom sub-agents shared across skills (code-review-deep, deep-planner, writing-architect, llm-council)
-├── hooks/              Lifecycle hook scripts + status line (copied to ~/.claude/hooks/)
-├── notes/              Research notes and scratch documents (not installed anywhere)
-├── PROJECT_PLAN.md     Design + roadmap for the multi-harness redesign
-├── install.sh          Copies config into ~/.claude/ (and cross-agent dirs)
-└── .gitignore
-```
+`install.sh` is a thin bootstrap: it clones/builds the personal MCP servers
+(bash, where that work belongs), then hands off to the **`agentconfig`
+generator** (Python, standard library only — no venv, runs on any `python3 >=
+3.11`). The generator:
 
-`settings.json` carries portable policy and automation: a permissions baseline
-allowing common read-only commands (git inspection, grep/rg, Slurm queries) and
-denying irreversibles (force-push, history rewrites, reading credential files);
-the `hooks/` wiring (secret-commit guard, format-on-edit, status line); and the
-notification channel. All of it is machine-independent — the hook commands
-resolve through the copied `~/.claude/hooks/` directory.
-Machine-specific state (enabled plugins, model choice, extra permissions) goes
-in `~/.claude/settings.local.json`, which Claude Code merges automatically and
-which is never synced. On a machine's first install, merge any keys from the
-backed-up old `settings.json` into `settings.local.json`; and since UI actions
-that write settings (`/model`, plugin toggles) edit the installed *copy*, not
-the repo, just re-run `./install.sh` to restore the synced baseline.
+1. Loads `manifest.toml` (the control plane: harnesses, MCP servers + their
+   per-harness targeting, which skills are portable).
+2. Detects which harnesses are actually installed and **skips the rest** — it
+   never creates `~/.codex` etc. for a tool you don't use.
+3. For each present harness, an **adapter** renders that harness's native
+   format, writing through a safe-I/O layer: atomic writes, back up a *changed*
+   file before replacing it, skip an unchanged one (idempotent re-runs),
+   `--check` for a dry run.
 
-## Why copies, not symlinks
+Two rules keep it from ever clobbering your hand edits:
 
-`install.sh` copies files into place rather than symlinking them. That keeps
-`~/.claude/` **decoupled from where this repo lives** — move, rename, or
-re-clone the repo and your config keeps working. The tradeoff: edits in the
-repo aren't live until you re-run the installer (the same model the personal
-MCPs already use). `./install.sh --config-only` re-applies config/skills/rules
-without touching the MCP checkouts.
+- **Separate files** where it can — `CLAUDE.md`, each harness's `AGENTS.md` /
+  `CRUSH.md`. The generator owns the whole file.
+- **Surgical merges** into shared configs it doesn't own: a **comment-preserving
+  managed block** for Codex's `config.toml` (which Codex co-manages), and a
+  **keyed deep-merge** for JSON configs (`opencode.json`, `crush.json`) that
+  preserves every other key and refuses rather than clobber a file it can't
+  parse. Your providers, models, and existing servers survive untouched.
+
+What renders where — and the deliberate gaps — is in **[`SUPPORT.md`](SUPPORT.md)**.
+Short version: rules + skills + MCP port everywhere they can; permissions port
+faithfully to Claude and opencode (command-pattern models) and are an honest
+gap where a harness can't express them (Codex/Crush). Every gap is a verified
+decision, not unfinished work.
+
+## Copies, not symlinks
+
+The installer **copies** files into place rather than symlinking. That keeps the
+installed config **decoupled from where this repo lives** — move, rename, or
+re-clone the repo and everything keeps working. The tradeoff: repo edits aren't
+live until you re-run (the same model the MCPs already use). `./install.sh
+--config-only` re-applies config without touching the MCP checkouts.
 
 ## Install on a new machine
 
 ```bash
 git clone <repo-url> ~/projects/agent-config
 cd ~/projects/agent-config
-./install.sh
+./install.sh                 # config for all installed harnesses, then MCPs
+./install.sh --config-only   # config only; skip MCP/repo cloning
+./install.sh --check         # dry run: show what would change
 ```
 
-The script:
-- Copies `~/.claude/CLAUDE.md` from this repo (and the same for `userprofile.md`,
-  `style.md`, `communication.md`, `engineering.md`, `settings.json`).
-- Copies each skill folder to `~/.claude/skills/<name>`.
-- Copies each sub-agent file to `~/.claude/agents/<name>.md`. Sub-agents are
-  shared infrastructure used by skills like `deep-planner` and `writing-architect`.
-- Copies the `hooks/` folder to `~/.claude/hooks/`, so the hook and status-line
-  scripts that `settings.json` references resolve on every machine. See
-  `hooks/README.md` for what each one does.
-- Also exports the *portable* skills (those with no Claude-Code sub-agent or MCP
-  dependency — see `PORTABLE_SKILLS` in `install.sh`) to `~/.agents/skills/`, the
-  directory Codex, pi, and opencode read natively. Crush is pointed at the same
-  dir via `skills_paths` in `~/.config/crush/crush.json` (only if Crush is
-  already set up). The heavy skills stay Claude-only.
-- Flattens the global rules (`userprofile`/`style`/`communication`/`engineering`)
-  into `~/.codex/AGENTS.md` and `~/.config/opencode/AGENTS.md`, since those agents
-  don't resolve the `@imports` in `CLAUDE.md`. Regenerated each run; a hand-written
-  file is backed up once. (pi has no global-rules file, so it gets skills only;
-  Crush reads project-level `AGENTS.md`.)
-- Backs up any *changed* real file at the target path to
-  `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it; unchanged files
-  are left untouched (idempotent re-runs).
-- Then prompts, once each, to clone the personal MCP repos (`PERSONAL_MCPS`)
-  to `~/mcps/<name>` and `uv sync` them (not registered with Claude Code;
-  see "Personal MCP servers" below), and to install the `security-review-deep`
-  tools. Run without a terminal, it does the copies and takes each prompt's
-  default (clone MCPs, skip security tools). Pass `--config-only` to stop after
-  the config and skip MCP/repo cloning entirely.
+Restart your agents afterward so they pick up the new skills. Re-run after a
+`git pull` to apply updates.
 
-Restart Claude Code after the first install so it picks up the new skills.
+## Layout
+
+```
+.
+├── userprofile.md / style.md / communication.md / engineering.md
+│                       The neutral rule source (topic split). CLAUDE.md and
+│                       each AGENTS.md are GENERATED from these.
+├── settings.json       Claude permissions + hooks baseline; also the
+│                       permission source other adapters translate from.
+├── skills/             One folder per skill (SKILL.md + optional references/).
+├── agents/             Sub-agents for the Claude-only skills (deep-planner,
+│                       writing-architect, llm-council).
+├── hooks/              Hook scripts + status line (Claude).
+├── manifest.toml       Control plane: harnesses, MCP servers + targeting,
+│                       portable-skill list, the CLAUDE.md preamble.
+├── agentconfig/        The generator (stdlib Python): core, adapters/, the
+│                       reconciler, the managed-state store.
+├── tests/  test.sh     Stdlib unittest suite (run ./test.sh).
+├── install.sh          Bootstrap: clone/build MCPs, then run the generator.
+├── SUPPORT.md          The harness support matrix.
+└── PROJECT_PLAN.md     Design decisions + roadmap.
+```
+
+Machine-specific Claude state (enabled plugins, model choice, extra
+permissions) goes in `~/.claude/settings.local.json`, which Claude merges
+automatically and which is never synced. Since UI actions (`/model`, plugin
+toggles) edit the installed *copy* of `settings.json`, just re-run the installer
+to restore the synced baseline.
+
+## The manifest
+
+`manifest.toml` is the only thing you edit to change *where* and *what* gets
+registered (the content lives in the rule/skill/agent files). Notably, MCP
+servers declare per-harness targeting — the same idiom as the per-machine
+extras:
+
+```toml
+[mcp.transcribemcp]
+command = "~/mcps/bin/transcribemcp-run"   # secrets stay in the MCP's own .env
+targets = ["codex", "opencode", "crush"]   # not Claude (manual) or pi (no native MCP)
+```
+
+The generator registers each MCP into the native config of every harness in its
+`targets`, pointing at the wrapper command — never writing a secret into a
+generated file.
 
 ## Personal MCP servers
 
-MCP servers I wrote and run locally. They all live under `~/mcps/<name>` —
-one predictable place, separate from `~/projects` where active development
-happens. `install.sh` offers to clone each and `uv sync` it, but deliberately
-does not register any of them with Claude Code: every server is **inactive by
-default**. Registering at user scope would load every server's tools into
-context in every project, used or not.
-
-Instead, enable a server only in the project where you want it, with local
-scope, so its tools load there and nowhere else:
+MCP servers I wrote, under `~/mcps/<name>`. `install.sh` clones each and
+`uv sync`s it. They're auto-registered into the harnesses named in their
+manifest `targets`. **Claude registration stays manual and per-project** by
+design — user-scope registration would load every server in every project:
 
 ```bash
-# run inside the project that needs it
-claude mcp add --scope local edamcp -- uv run --directory ~/mcps/edamcp edamcp
-claude mcp add --scope local chemtools -- uv run --directory ~/mcps/chemtoolsmcp chemtoolsmcp
-claude mcp add --scope local comfyui -- uv run --directory ~/mcps/comfyui_mcp comfyui_mcp
+# enable a server only in the project that needs it
 claude mcp add --scope local transcribe -- ~/mcps/bin/transcribemcp-run
-
+claude mcp add --scope local edamcp     -- uv run --directory ~/mcps/edamcp edamcp
 # office-google-mac-mcp is a monorepo; each app is its own server
 claude mcp add --scope local word -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp word
-claude mcp add --scope local excel -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp excel
-claude mcp add --scope local powerpoint -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp powerpoint
-
-# h2mcp (Hoffman2 jobs) is TypeScript; install.sh runs npm install + build
-claude mcp add --scope local hoffman2 -- node ~/mcps/h2mcp/dist/index.js
 ```
 
-Append `--mode local` for edamcp's thin (35-tool) surface. Because the launch
-command points at the `~/mcps/<name>` checkout, local edits are live and
-`git pull` updates it.
-
-To add another personal MCP, append a `"name|git-url"` line to `PERSONAL_MCPS`
-in `install.sh`, re-run it, then use the same `claude mcp add --scope local`
-pattern in your projects.
+To add another MCP: append a `"name|git-url"` line to `PERSONAL_MCPS` in
+`install.sh` (cloning), and an `[mcp.<name>]` block to `manifest.toml`
+(registration + targeting).
 
 ## Editing
 
-Edit files in this repo, then re-run `./install.sh` (or `--config-only`) to
-copy the changes into place — the same way you apply an MCP update. Commit and
-push when you're happy; on other machines, `git pull` then `./install.sh`.
+Edit the source files (rules, `skills/`, `agents/`, `settings.json`,
+`manifest.toml`), then re-run `./install.sh` (or `--config-only`) to render the
+changes into each harness. Commit and push; on other machines, `git pull` then
+re-run.
 
 ## Skills
 
@@ -154,6 +157,6 @@ push when you're happy; on other machines, `git pull` then `./install.sh`.
 | `writing-architect` | Macro-first pipeline for multi-page documents (outline → draft → layered reviews) |
 
 The Stampede3 pair is the pattern for per-cluster skills: submit + debug,
-self-contained queue table, cluster-specific failure modes. Hoffman2 is
-covered by the `h2mcp` MCP server instead; add a skill pair per cluster as
-needed (Anvil next).
+self-contained queue table, cluster-specific failure modes. Hoffman2 is covered
+by the `h2mcp` MCP server instead; add a skill pair per cluster as needed
+(Anvil next).

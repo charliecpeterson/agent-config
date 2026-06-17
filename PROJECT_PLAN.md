@@ -2,8 +2,8 @@
 
 > Living document. Updated incrementally by the deep-planner skill.
 > Last updated: 2026-06-17
-> Current phase: Phases 1 & 2 complete; rename done early. Remaining:
-> README rewrite for the multi-harness reality (Phase 3 docs).
+> Current phase: ✅ COMPLETE — all phases done (generator, 5 adapters,
+> support matrix, CI, rename, docs).
 
 ## Goal                                                    (always)
 Evolve claude-config from a Claude-Code-centric config repo into a
@@ -441,19 +441,20 @@ AGENTS.md renderer + Codex rules adapter landed.
 **Effort**: ~one focused unit per adapter; pi is the wildcard.
 **Depends on**: Phase 1 (core + contract).
 
-### Phase 3: Operational capstone + rename + docs
-- [ ] Clean-machine smoke test in CI (container → bootstrap → assert
-      artifacts placed + parse, across harnesses).
-- [ ] GitHub Actions: run `./test.sh` + the smoke test on push.
-- [ ] Stale-report polish (the D7 no-delete reporting).
-- [ ] Rename `claude-config → agent-config`: repo dir, GitHub repo,
-      `install.sh` self-refs, machine bootstrap clones.
-- [ ] README/docs rewrite for the harness-neutral reality + embed the
-      generated support matrix.
-**Out of scope**: nothing — closes the redesign.
-**Why last**: rename is cosmetic-with-blast-radius (prove the work
-first); the CI capstone needs all adapters to be meaningful.
-**Depends on**: Phases 1–2.
+### Phase 3: Operational capstone + rename + docs — DONE
+- [x] Clean-machine smoke test in CI + GitHub Actions (`.github/workflows/
+      ci.yml`); green on GitHub. **(Done in Phase 2.)**
+- [~] Stale-report `--check`/state exists; deeper polish deferred (low value).
+- [x] Rename `claude-config → agent-config` (repo, remote, install.sh,
+      ~/.claude decoupled). **Done early** (the copy-switch made it safe).
+- [x] README rewritten for the multi-harness reality; `SUPPORT.md` is the
+      published matrix (linked, not embedded).
+
+**PROJECT COMPLETE.** One source → 5 harnesses, comment-safe merges, every
+gap a verified decision, CI green, docs current. Verification caught 3
+real install.sh bugs along the way (Codex skills path, pi global rules,
+symlink location-coupling). Future work is additive (a 6th harness = one
+adapter module + a manifest block + a test).
 
 ## Dependencies & Risks                                    (always)
 - **Re-architecture of a working installer**: install.sh works today;
