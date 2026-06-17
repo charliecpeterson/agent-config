@@ -119,6 +119,10 @@ class CodexMcpTest(unittest.TestCase):
             self.assertTrue(servers["transcribemcp"]["command"].endswith("transcribemcp-run"))
             self.assertNotIn("~", servers["transcribemcp"]["command"])  # expanded
             self.assertGreaterEqual(len(data["skills"]["config"]), 1)  # coexists with skills
+            # permissions + hooks are gaps — we emit neither
+            self.assertNotIn("permissions", data)
+            self.assertNotIn("apps", data)
+            self.assertNotIn("hooks", data)
 
 
 if __name__ == "__main__":

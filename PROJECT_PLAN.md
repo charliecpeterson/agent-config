@@ -362,8 +362,16 @@ AGENTS.md renderer + Codex rules adapter landed.
     `hookSpecificOutput` out); run by Codex they silently no-op. Shipping
     them = false safety signal. Porting needs harness-aware scripts — a
     deliberate separate effort, not "register the hook."
-  - [ ] **permissions** (`[apps]` approval modes) — the highest-risk
-    adapter; deny-floor round-trip + fail-safe gap rule (OQ3). TODO.
+  - [x] **permissions = NAMED GAP** (verified 2026-06, user-confirmed).
+    Codex has NO bash-command deny mechanism → the force-push/rm-rf floor
+    can't port. File-read denies live only in a `[permissions.<name>]`
+    profile activated by the global `default_permissions` key (mutually
+    exclusive with `sandbox_mode`) — emitting it would commandeer Codex's
+    entire security policy for an incomplete floor. So: gap; rely on
+    Codex's native sandbox + approval (OQ3 fail-safe; D3 "full port" is
+    structurally impossible here). Opt-in profile generation deferred.
+  - **Codex adapter COMPLETE**: rules + skills + MCP ported; hooks +
+    permissions are honest, documented gaps.
 - [ ] **opencode** adapter (`AGENTS.md`, `agent/subagents/`, mcp,
       `commands/`, wildcard perms). Verify `~/.agents/skills` read.
 - [ ] **Crush** adapter (write the missing `AGENTS.md`; `crush.json`

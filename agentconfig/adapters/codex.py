@@ -52,6 +52,14 @@ class CodexAdapter(Adapter):
         # Hooks: GAP. The Claude hook scripts are bound to Claude's hook I/O
         # contract (.tool_input.* in, hookSpecificOutput out); run by Codex they
         # silently no-op. Registering them would be a false safety signal (D3).
+        #
+        # Permissions: GAP (verified 2026-06, user-confirmed). Codex has no
+        # bash-command deny mechanism, so the force-push/rm-rf floor can't port.
+        # File-read denies exist only inside a [permissions.<name>] profile that
+        # activates via the global `default_permissions` key (mutually exclusive
+        # with sandbox_mode) — emitting it would commandeer Codex's whole
+        # security policy for an incomplete floor. Codex's native sandbox +
+        # approval_policy is the baseline instead (OQ3 fail-safe).
 
     def _emit_rules(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         ctx.write_file(
