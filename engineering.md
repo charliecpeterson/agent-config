@@ -86,6 +86,18 @@ decision — it means building the lean version of the right design.
   possible done by maintained code we didn't write, as little bespoke glue as
   the problem requires.
 
+## Ground tool and config answers in the source, not memory
+
+For a command, flag, config option, library API, or cluster question, your
+training memory is both stale and confidently wrong. Retrieve the real source
+first — official docs, `man`/`--help` on the system, or a doc corpus I point
+you at — and cite the exact location (URL + section, or file + line/heading)
+so I can open it and read around it. If you can't produce a real excerpt for a
+claim, say "unverified" rather than answering from memory; standard knowledge
+or a forced default is fine if you label it as not-from-the-source. The
+`doc-grounded` skill does this in full; this is the always-on floor for when it
+doesn't fire.
+
 ## Watch the architectural direction
 
 - Step back from the line-level work periodically and ask whether the project

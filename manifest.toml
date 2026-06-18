@@ -28,6 +28,7 @@ overrides them. Project files take precedence on conflict.
 # Skills themselves are auto-discovered from skills/*/SKILL.md.
 portable = [
   "bug-hunter",
+  "doc-grounded",
   "dyslexia-friendly",
   "editor",
   "human-writer",

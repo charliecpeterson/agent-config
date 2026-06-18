@@ -64,6 +64,7 @@ COMPUTE_CAP="$(detect_compute)"
 # half-execute.
 PORTABLE_SKILLS=(
   bug-hunter
+  doc-grounded
   dyslexia-friendly
   editor
   human-writer
