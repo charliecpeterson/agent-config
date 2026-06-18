@@ -1,9 +1,9 @@
 # manifest.toml — declarative control plane for the agent-config generator.
 # Read-only (parsed via stdlib tomllib; nothing writes it back).
 #
-# Phase 1 scope: the Claude adapter. The asset×harness matrix and the other
-# harness blocks (codex/opencode/crush/pi) arrive in Phase 2, where they earn
-# their keep. See PROJECT_PLAN.md.
+# Drives every harness adapter: the rules, the portable-skill list, and the
+# per-harness MCP targeting below. All five adapters (claude/codex/opencode/
+# crush/pi) are implemented. See SUPPORT.md for what renders where.
 
 [meta]
 repo_name = "agent-config"
@@ -24,7 +24,7 @@ overrides them. Project files take precedence on conflict.
 
 [skills]
 # Portable = no Claude-Code sub-agent / MCP dependency; these get exported to
-# ~/.agents/skills for the other CLIs in Phase 2. Everything else is Claude-only.
+# ~/.agents/skills for the other CLIs. Everything else is Claude-only.
 # Skills themselves are auto-discovered from skills/*/SKILL.md.
 portable = [
   "bug-hunter",

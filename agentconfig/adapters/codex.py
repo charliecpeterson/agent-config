@@ -5,9 +5,9 @@ Verified against current docs (2026-06): Codex reads a global ~/.codex/AGENTS.md
 paths in config.toml (it does NOT read ~/.agents/skills — the latent bug),
 takes MCP via [mcp_servers.<id>], and hooks via [hooks.<Event>] matcher groups.
 
-This increment renders rules (AGENTS.md — a generator-owned file, no merge). The
-config.toml asset types (skills/MCP/hooks/permissions) land with the keyed-merge
-reconciler + TOML writer in the next increment.
+Renders rules (AGENTS.md, generator-owned, no merge) plus skills and MCP as a
+single keyed managed block in config.toml. Hooks and permissions are documented
+gaps — no faithful Codex mapping; see the GAP notes in emit() and SUPPORT.md.
 """
 from __future__ import annotations
 

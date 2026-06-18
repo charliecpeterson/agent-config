@@ -4,10 +4,10 @@ Verified (2026-06): config at ~/.config/opencode/opencode.json (plain JSON or
 JSONC); opencode reads ~/.agents/skills natively (so skills need NO adapter
 work — the export already covers it); MCP under the `mcp` key as
 {type:"local", command:[...], enabled}; permissions are command-pattern
-allow/ask/deny (the "closest to Claude" model — ported in the next increment).
+allow/ask/deny (the "closest to Claude" model — and they port faithfully).
 
-This increment: rules (AGENTS.md, separate file) + MCP (JSON keyed-merge into
-opencode.json). Subagents (agent/subagents/), commands, and permissions follow.
+Renders rules (AGENTS.md, separate file), MCP (JSON keyed-merge into
+opencode.json), and the bash permission floor. Subagents are a documented gap.
 """
 from __future__ import annotations
 

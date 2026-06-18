@@ -74,7 +74,7 @@ Restart your agents afterward so they pick up the new skills. Re-run after a
 │                       permission source other adapters translate from.
 ├── skills/             One folder per skill (SKILL.md + optional references/).
 ├── agents/             Sub-agents for the Claude-only skills (deep-planner,
-│                       writing-architect, llm-council).
+│                       writing-architect, doc-grounded, …).
 ├── hooks/              Hook scripts + status line (Claude).
 ├── manifest.toml       Control plane: harnesses, MCP servers + targeting,
 │                       portable-skill list, the CLAUDE.md preamble.
@@ -142,6 +142,7 @@ re-run.
 | `bug-hunter` | Disciplined debugging — root cause, not symptom |
 | `code-review-deep` | Tool-grounded review — whole-codebase assessment by default (Continue/Refactor/Rebuild), or a deep scoped change review when you name a PR/commit (distinct from built-in `/code-review`) |
 | `deep-planner` | Exhaustive one-question-at-a-time planning sessions |
+| `doc-grounded` | Answer tool/config/API questions from a source you point at (docs URL or local corpus) and cite the exact location, instead of from stale memory |
 | `dyslexia-friendly` | Formats all output for dyslexic-friendly reading |
 | `editor` | Critique-only feedback on drafts (no rewriting) |
 | `human-writer` | Generate or rewrite prose, always non-AI-sounding |

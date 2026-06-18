@@ -58,23 +58,28 @@ detect_compute() {
 COMPUTE_CAP="$(detect_compute)"
 
 # Skills with no Claude-Code-specific machinery (no spawned sub-agents, no
-# bundled MCP server) — safe to expose to other agent CLIs. The heavy skills
-# (code-review-deep, deep-planner, writing-architect, security-review-deep,
-# llm-council) stay Claude-only: their SKILL.md would load elsewhere but then
-# half-execute.
-PORTABLE_SKILLS=(
-  bug-hunter
-  doc-grounded
-  dyslexia-friendly
-  editor
-  human-writer
-  presentation-designer
-  project-starter
-  recent-research
-  session-handoff
-  stampede3-debug
-  stampede3-submit
-)
+# bundled MCP server) — safe to expose to other agent CLIs. The list is owned by
+# manifest.toml [skills].portable (the generator validates each entry against a
+# real SKILL.md); we read it here rather than keep a second copy in sync by hand.
+# The heavy skills (code-review-deep, deep-planner, writing-architect,
+# security-review-deep, llm-council) stay Claude-only — they're simply absent
+# from that list.
+PORTABLE_SKILLS=()
+load_portable_skills() {
+  local s
+  PORTABLE_SKILLS=()
+  while IFS= read -r s; do
+    [[ -n "$s" ]] && PORTABLE_SKILLS+=("$s")
+  done < <(awk '
+    /^portable[[:space:]]*=[[:space:]]*\[/ { inlist=1; next }
+    inlist && /\]/                         { inlist=0 }
+    inlist {
+      gsub(/[",]/, ""); gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      if (length($0)) print
+    }
+  ' "$REPO_DIR/manifest.toml")
+}
+load_portable_skills
 
 CHECK_ONLY=0
 CONFIG_ONLY=0
@@ -295,17 +300,19 @@ is_portable_skill() {
   return 1
 }
 
-# Remove symlinks that point into this repo but whose target no longer exists
-# (a skill or agent that was deleted or moved out of the repo).
-prune_dangling() {
-  local dir="$1" link target
+# Remove copies in ~/.agents/skills that no longer correspond to a portable
+# skill — one deleted from the repo, or dropped from manifest's [skills].portable.
+# (Before the switch from symlinks to copies this pruned dangling links; nothing
+# here is a symlink now, so it has to compare against the live portable list.)
+prune_stale_portable() {
+  local dir="$1" entry name
   [[ -d "$dir" ]] || return 0
-  for link in "$dir"/*; do
-    [[ -L "$link" ]] || continue
-    target="$(readlink "$link")"
-    if [[ "$target" == "$REPO_DIR"/* && ! -e "$link" ]]; then
-      echo "  prune    $link (target gone: $target)"
-      rm "$link"
+  for entry in "$dir"/*; do
+    [[ -e "$entry" ]] || continue
+    name="$(basename "$entry")"
+    if ! is_portable_skill "$name" || [[ ! -d "$REPO_DIR/skills/$name" ]]; then
+      echo "  prune    $entry (no longer a portable skill)"
+      rm -rf "$entry"
     fi
   done
 }
@@ -343,8 +350,8 @@ configure_crush_skills_path() {
   fi
 }
 
-# (AGENTS.md flattening for Codex/opencode moved into the agentconfig
-# generator's per-harness adapters; Crush/pi adapters are still to come.)
+# (AGENTS.md flattening for the non-Claude harnesses lives in the agentconfig
+# generator's per-harness adapters — all five are implemented.)
 
 # Yes/no prompt. Returns 0 for yes. Without a terminal (piped, CI) it takes
 # the default and does not block, so unattended runs still do config + skills.
@@ -504,74 +511,92 @@ run_check() {
   echo "Target:  $CLAUDE_DIR"
   echo
 
+  # The installer copies (cp -R / the generator's copytree); nothing is a
+  # symlink. A target is healthy when it exists and its content matches the repo
+  # source — that's what _same_content checks.
   echo "Synced files:"
   for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
-    local dest="$CLAUDE_DIR/$name"
-    if [[ -L "$dest" ]] && [[ "$(readlink "$dest")" == "$REPO_DIR/$name" ]]; then
-      echo "  ✓ $name"
-    elif [[ -e "$dest" ]]; then
-      echo "  ✗ $name (exists but not linked to repo)"
+    local dest="$CLAUDE_DIR/$name" src="$REPO_DIR/$name"
+    [[ -f "$src" ]] || continue
+    if [[ ! -e "$dest" ]]; then
+      echo "  ✗ $name (missing from ~/.claude — re-run ./install.sh)"
       missing=1
-    elif [[ -f "$REPO_DIR/$name" ]]; then
-      echo "  ✗ $name (missing from ~/.claude)"
+    elif _same_content "$src" "$dest"; then
+      echo "  ✓ $name"
+    else
+      echo "  ✗ $name (differs from repo — re-run ./install.sh)"
       missing=1
     fi
   done
 
   echo
-  echo "Skills linked:"
-  local n=0
-  for link in "$CLAUDE_DIR/skills"/*; do
-    [[ -L "$link" ]] || continue
-    local target
-    target="$(readlink "$link")"
-    if [[ "$target" == "$REPO_DIR"/* ]]; then
-      if [[ -e "$link" ]]; then
-        echo "  ✓ $(basename "$link")"
-        ((n++)) || true
-      else
-        echo "  ✗ $(basename "$link") (dangling — target gone; re-run ./install.sh to prune)"
-        missing=1
-      fi
+  echo "Skills (~/.claude/skills):"
+  local sk_ok=0 sk_bad=0 src sname dest
+  for src in "$REPO_DIR/skills"/*/; do
+    [[ -d "$src" ]] || continue
+    sname="$(basename "$src")"
+    dest="$CLAUDE_DIR/skills/$sname"
+    if [[ ! -e "$dest" ]]; then
+      echo "  ✗ $sname (missing — re-run ./install.sh)"; ((sk_bad++)) || true; missing=1
+    elif _same_content "$src" "$dest"; then
+      ((sk_ok++)) || true
+    else
+      echo "  ✗ $sname (differs — re-run ./install.sh)"; ((sk_bad++)) || true; missing=1
     fi
   done
-  [[ "$n" -eq 0 ]] && { echo "  (none)"; missing=1; }
+  [[ "$sk_bad" -eq 0 ]] && echo "  ✓ $sk_ok skills match repo"
 
   if [[ -d "$REPO_DIR/agents" ]]; then
     echo
-    echo "Agents linked:"
-    local agents_found=0
-    for link in "$CLAUDE_DIR/agents"/*.md; do
-      [[ -L "$link" ]] || continue
-      local target
-      target="$(readlink "$link")"
-      if [[ "$target" == "$REPO_DIR"/agents/* ]]; then
-        echo "  ✓ $(basename "$link")"
-        ((agents_found++)) || true
+    echo "Sub-agents (~/.claude/agents):"
+    local ag_ok=0 ag_bad=0 aname
+    for src in "$REPO_DIR/agents"/*.md; do
+      [[ -f "$src" ]] || continue
+      aname="$(basename "$src")"
+      dest="$CLAUDE_DIR/agents/$aname"
+      if [[ ! -e "$dest" ]]; then
+        echo "  ✗ $aname (missing — re-run ./install.sh)"; ((ag_bad++)) || true; missing=1
+      elif _same_content "$src" "$dest"; then
+        ((ag_ok++)) || true
+      else
+        echo "  ✗ $aname (differs — re-run ./install.sh)"; ((ag_bad++)) || true; missing=1
       fi
     done
-    [[ "$agents_found" -eq 0 ]] && { echo "  (none — re-run ./install.sh)"; missing=1; }
+    [[ "$ag_bad" -eq 0 ]] && echo "  ✓ $ag_ok sub-agents match repo"
   fi
 
   if [[ -d "$REPO_DIR/hooks" ]]; then
     echo
     echo "Hooks:"
-    if [[ -L "$CLAUDE_DIR/hooks" ]] && [[ "$(readlink "$CLAUDE_DIR/hooks")" == "$REPO_DIR/hooks" ]]; then
-      echo "  ✓ ~/.claude/hooks -> repo (statusline + $(find "$REPO_DIR/hooks" -name '*.sh' | wc -l | tr -d ' ') scripts)"
+    if [[ ! -e "$CLAUDE_DIR/hooks" ]]; then
+      echo "  ✗ ~/.claude/hooks missing (re-run ./install.sh)"; missing=1
+    elif _same_content "$REPO_DIR/hooks" "$CLAUDE_DIR/hooks"; then
+      echo "  ✓ ~/.claude/hooks ($(find "$REPO_DIR/hooks" -name '*.sh' | wc -l | tr -d ' ') scripts)"
     else
-      echo "  ✗ ~/.claude/hooks not linked to repo (re-run ./install.sh)"
-      missing=1
+      echo "  ✗ ~/.claude/hooks differs from repo (re-run ./install.sh)"; missing=1
     fi
   fi
 
   echo
   echo "Cross-agent (Codex / pi / opencode / Crush):"
-  local pn=0 ps
-  for ps in "$AGENTS_SKILLS_DIR"/*; do
-    [[ -L "$ps" ]] || continue
-    [[ "$(readlink "$ps")" == "$REPO_DIR"/* ]] && { echo "  ✓ ~/.agents/skills/$(basename "$ps")"; ((pn++)) || true; }
+  local pn=0 pbad=0 entry ename
+  for sname in "${PORTABLE_SKILLS[@]}"; do
+    src="$REPO_DIR/skills/$sname"; dest="$AGENTS_SKILLS_DIR/$sname"
+    [[ -d "$src" ]] || continue
+    if [[ ! -e "$dest" ]]; then
+      echo "  ✗ ~/.agents/skills/$sname (missing — re-run ./install.sh)"; ((pbad++)) || true; missing=1
+    elif _same_content "$src" "$dest"; then
+      ((pn++)) || true
+    else
+      echo "  ✗ ~/.agents/skills/$sname (differs — re-run ./install.sh)"; ((pbad++)) || true; missing=1
+    fi
   done
-  [[ "$pn" -eq 0 ]] && echo "  ✗ no portable skills in ~/.agents/skills (re-run ./install.sh)"
+  [[ "$pbad" -eq 0 ]] && echo "  ✓ $pn portable skills in ~/.agents/skills"
+  for entry in "$AGENTS_SKILLS_DIR"/*/; do
+    [[ -d "$entry" ]] || continue
+    ename="$(basename "$entry")"
+    is_portable_skill "$ename" || { echo "  ✗ ~/.agents/skills/$ename (stale — no longer portable; re-run ./install.sh to prune)"; missing=1; }
+  done
   for af in "$CODEX_DIR/AGENTS.md:Codex" "$OPENCODE_DIR/AGENTS.md:opencode"; do
     if [[ -f "${af%%:*}" ]]; then
       echo "  ✓ ${af%%:*} (${af##*:})"
@@ -717,8 +742,10 @@ else
   echo "  manual   need python3 >=3.11 (tomllib) to render Claude config; install it and re-run"
 fi
 
-# Cross-agent skills export — portable skills also copied to ~/.agents/skills
-# for Codex/pi/opencode. (Moves into per-harness adapters in Phase 2.)
+# Cross-agent skills export — portable skills copied to ~/.agents/skills, which
+# pi, opencode, and Crush read natively. (Codex does NOT read ~/.agents/skills;
+# the generator registers its skills via config.toml paths instead.) Stays in
+# bash because the generator doesn't own ~/.agents/skills.
 echo
 echo "Cross-agent skills (~/.agents/skills):"
 for skill_dir in "$REPO_DIR/skills"/*/; do
@@ -729,7 +756,7 @@ for skill_dir in "$REPO_DIR/skills"/*/; do
   fi
 done
 
-prune_dangling "$AGENTS_SKILLS_DIR"
+prune_stale_portable "$AGENTS_SKILLS_DIR"
 
 # ---------------------------------------------------------------------------
 # Other agent CLIs (Codex, pi, opencode, Crush)
@@ -739,9 +766,10 @@ echo "Other agent CLIs (Codex / pi / opencode / Crush):"
 echo "  Portable skills copied into $AGENTS_SKILLS_DIR (pi, opencode read it natively;"
 echo "  Codex registers skill paths in config.toml instead — handled by the generator)."
 configure_crush_skills_path
-# Codex and opencode AGENTS.md + MCP are now rendered by the agentconfig
-# generator (their adapters). Crush + pi adapters are still to come.
-echo "  note     Codex/opencode rules+MCP via the generator; pi gets skills only"
+# Rules and (where the harness supports it) MCP are rendered by the agentconfig
+# generator for all four non-Claude harnesses. pi gets a generated AGENTS.md
+# (rules), not skills — it has no native MCP and skills there are unverified.
+echo "  note     rules (+ MCP where supported) via the generator; portable skills via ~/.agents/skills"
 
 # Config-only stops here: skip MCP/repo cloning + security tools. Useful after a
 # `git pull` to apply config changes without touching the MCP venvs.

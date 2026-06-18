@@ -30,8 +30,8 @@ design — user-scope registration loads every server in every project.
   Claude's allow/deny faithfully. (`Read()` credential denies are a partial gap
   even there — opencode governs bash/edit, not file reads.)
 - **MCP, pi.** pi ships without native MCP ("No MCP"; extension-only).
-- **Subagents.** The 12 agents are infrastructure for Claude-only skills
-  (deep-planner / writing-architect / llm-council) that don't run elsewhere —
+- **Subagents.** The 13 agents are infrastructure for Claude-only skills
+  (deep-planner / writing-architect / llm-council / doc-grounded) that don't run elsewhere —
   porting the definitions would give the other harnesses subagents nothing
   invokes. Targeted at Claude only.
 - **Hooks.** The hook scripts are bound to Claude's hook I/O contract
