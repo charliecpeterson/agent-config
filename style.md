@@ -25,6 +25,11 @@
   sentinel), and prefer the background-task notification over polling at all.
 - Clean up after yourself: kill stray waiters/containers you spawned, and
   remove throwaway Docker images/build artifacts when done.
+- When a command is long, or chains/pipes several stages together, write it
+  with `\` line continuations so each stage sits on its own line. It runs
+  identically (bash treats `\`-newline as one command, so permission-prefix
+  rules still match), but the approval prompt reads as a stack instead of one
+  run-on line. Don't bother for short single commands.
 
 ## Comments
 - Comment *why*, never *what*. If the code shows what it does, the comment is noise.
