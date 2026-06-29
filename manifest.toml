@@ -73,7 +73,3 @@ tested_against = "0.79.0"
 [mcp.transcribemcp]
 command = "~/mcps/bin/transcribemcp-run"
 targets = ["codex", "opencode", "crush"]
-
-[mcp.comfyui_mcp]
-command = "~/mcps/bin/comfyui_mcp-run"
-targets = ["codex"]
