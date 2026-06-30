@@ -1,0 +1,21 @@
+# .docs-lint — denylist of tokens that must never reappear in the docs once
+# they're cut from the code. Copy to your repo root as `.docs-lint` and seed
+# it as you remove things. One POSIX extended-regex per line; '#' comments and
+# blank lines ignored. Changelog/history files are exempt. Checked by
+# scripts/check-docs.sh.
+#
+# The point: when you delete an env var, rename a crate, or kill a feature,
+# add its name here. A stale doc that names it again then fails CI instead of
+# rotting silently. Examples (delete these, add your own):
+
+# old env var the code no longer reads
+# MYAPP_LEGACY_TIMEOUT
+
+# deleted service/crate
+# myapp-http-bridge
+
+# renamed binary (regex-escape the dot)
+# myapp-old-cli\b
+
+# dead doc path you repointed
+# docs/OLD_GUIDE\.md

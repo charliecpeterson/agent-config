@@ -1,0 +1,36 @@
+name: docs-lint
+
+# Deterministic, no-LLM doc-freshness check: dead local links + a denylist of
+# tokens removed from the code (.docs-lint). See scripts/check-docs.sh. The
+# periodic semantic counterpart is the doc-sync skill (run locally).
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '**/*.markdown'
+      - '**/*.qmd'
+      - '**/*.rst'
+      - '.docs-lint'
+      - 'scripts/check-docs.sh'
+      - '.github/workflows/docs-lint.yml'
+  push:
+    branches: [main]
+    paths:
+      - '**/*.md'
+      - '**/*.markdown'
+      - '**/*.qmd'
+      - '**/*.rst'
+      - '.docs-lint'
+
+jobs:
+  docs-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lychee
+        uses: taiki-e/install-action@v2
+        with:
+          tool: lychee
+      - name: Check docs
+        run: bash scripts/check-docs.sh
