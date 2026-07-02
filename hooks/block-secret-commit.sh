@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # PreToolUse hook (Bash / git commit): refuse a commit that stages obvious
-# secret files. Complements the Read-deny rules in settings.json — those stop
-# the model reading credentials, this stops it committing them.
+# secret files, or files a repo has explicitly denylisted. Complements the
+# Read-deny rules in settings.json — those stop the model reading credentials,
+# this stops it committing them.
 #
-# Emits a PreToolUse "deny" decision (JSON on stdout) when staged paths look
-# like secrets; silent exit 0 otherwise. Never hard-fails the turn.
+# Two checks: a built-in secret-file pattern, and an optional per-repo
+# .commit-deny file (grep -E path patterns) for things like generated bundles
+# that must never be committed even when modified.
+#
+# Emits a PreToolUse "deny" decision (JSON on stdout) when a staged path
+# matches; silent exit 0 otherwise. Never hard-fails the turn.
 
 payload="$(cat)"
 cmd="$(jq -r '.tool_input.command // empty' <<<"$payload" 2>/dev/null)"
@@ -24,17 +29,37 @@ staged="$(git -C "$dir" diff --cached --name-only 2>/dev/null)"
 secret_re='(^|/)(\.env(\..+)?|\.netrc|id_(rsa|dsa|ecdsa|ed25519)|.+\.(pem|key|p12|pfx|pkcs12|keystore|jks)|credentials(\.json)?|.*service-account.*\.json)$'
 allow_re='\.env\.(example|sample|template)$|\.pub$'
 
-offenders=""
+secrets=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   if grep -Eq "$secret_re" <<<"$f" && ! grep -Eq "$allow_re" <<<"${f##*/}"; then
-    offenders+="  $f"$'\n'
+    secrets+="  $f"$'\n'
   fi
 done <<<"$staged"
 
-[ -n "$offenders" ] || exit 0
+# Per-repo denylist: a repo may keep a .commit-deny file at its root listing
+# grep -E path patterns (one per line, '#' comments allowed) for files that
+# must never be committed even though they show up as modified — e.g. generated
+# bundles kept out of version control. Keeps repo-specific rules out of this
+# global hook.
+denied=""
+top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"
+if [ -n "$top" ] && [ -f "$top/.commit-deny" ]; then
+  while IFS= read -r pat; do
+    case "$pat" in ''|'#'*) continue ;; esac
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      grep -Eq "$pat" <<<"$f" && denied+="  $f"$'\n'
+    done <<<"$staged"
+  done < "$top/.commit-deny"
+fi
 
-reason="Refusing to commit — these staged files look like secrets:"$'\n'"$offenders"$'\n'"Unstage them, or commit yourself if this is deliberate."
+[ -n "$secrets$denied" ] || exit 0
+
+reason="Refusing to commit — staged files that shouldn't be committed:"$'\n'
+[ -n "$secrets" ] && reason+=$'\n'"look like secrets:"$'\n'"$secrets"
+[ -n "$denied" ] && reason+=$'\n'"matched this repo's .commit-deny:"$'\n'"$denied"
+reason+=$'\n'"Unstage them, or commit yourself if this is deliberate."
 jq -n --arg r "$reason" \
   '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r}}'
 exit 0

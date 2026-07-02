@@ -149,3 +149,35 @@ one-reader tool.
 - **Caught by:** reading the runner's collected/ran/skipped counts, not the
   green checkmark.
 - **Instance:** general — coverage looks fine, but the test never executed.
+
+### Action control clipped / unreachable in a constrained panel
+- **Trigger:** a fixed- or user-resizable-width panel (sidebar, rail, toolbar,
+  inspector) that packs several controls in one row or a multi-column grid —
+  especially an action button (Apply/Save/Commit/Delete) *after* a wide widget
+  like a text field or slider.
+- **Check:** render the panel at its *minimum* width and confirm every
+  actionable control is fully visible and clickable. The handler logic reads
+  fine in isolation; the bug is that the button is off-screen, so the action can
+  never be triggered. Reading the code will not reveal it — you have to look at
+  the rendered layout at a narrow width.
+- **Caught by:** running the app and finding the button clipped past the panel's
+  edge (or wrapped out of view); "it compiles and the code is correct" hid it.
+- **Instance:** orbitron — the measurement "Apply" button (edit a distance/angle
+  in-place) was pushed off the rail's right edge by the value field + slider, so
+  an edited value could never be committed. `ui/shell/src/panels/measurements/current.rs`.
+
+### Greedy sibling widget squeezes an adjacent one (immediate-mode GUI)
+- **Trigger:** an immediate-mode UI row (`ui.horizontal` in egui and similar)
+  holding a full-width text field / slider *and* a trailing button or label,
+  inside a container that forces text wrapping.
+- **Check:** the greedy widget takes all the width and the trailing widget
+  collapses to its minimum, where the wrap-on setting char-wraps its label into
+  a vertical column of single letters (or truncates it to nothing). Constrain
+  the greedy widget (`desired_width`), reserve the button's width, or make the
+  row wrap as whole widgets (`horizontal_wrapped`). Verify by screenshot + zoom,
+  not by reading — the layout math isn't obvious from the source.
+- **Caught by:** a zoomed screenshot showing "S a v e" stacked vertically where a
+  button should be.
+- **Instance:** orbitron — a global rail wrap-mode plus greedy text fields
+  rendered "Save as", "Last", and a long tab label as vertical single-letter
+  columns. `ui/shell/src/panels/{appearance/presets.rs,measurements/current.rs,analysis_panel.rs}`.
