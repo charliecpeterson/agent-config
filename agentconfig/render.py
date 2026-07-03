@@ -18,10 +18,15 @@ from .model import ManagedArtifact, RunResult
 
 
 class RenderContext:
-    def __init__(self, stamp: str, *, dry_run: bool = False) -> None:
+    def __init__(
+        self, stamp: str, *, dry_run: bool = False, backups_root: Path | None = None
+    ) -> None:
         self.stamp = stamp
         self.dry_run = dry_run
         self.result = RunResult()
+        # Backups land under a central tree, NOT beside the dest (see
+        # _backup_path). Overridable so tests don't write into $HOME.
+        self.backups_root = Path(backups_root) if backups_root else Path.home() / ".agentconfig-backups"
 
     # ---- public primitives adapters call -----------------------------------
 
@@ -56,7 +61,7 @@ class RenderContext:
             if unchanged:
                 self._log("ok", dest)
                 return False
-            backup = dest.with_name(f"{dest.name}.backup-{self.stamp}")
+            backup = self._backup_path(dest)
             self._do(lambda: self._replace_into_backup(dest, backup))
             self._log("backup", dest)
         else:
@@ -86,8 +91,19 @@ class RenderContext:
             shutil.copyfile(src, tmp)
             os.replace(tmp, dest)
 
+    def _backup_path(self, dest: Path) -> Path:
+        """Central, timestamped backup location OUTSIDE any harness-scanned
+        config tree. A `<name>.backup-*` left next to the dest inside
+        `~/.claude/skills/` (or `~/.agents/skills/`) would be walked by the
+        loaders and register as a phantom skill/agent — so mirror the dest's
+        path under a home-level backups dir instead."""
+        dest = dest.absolute()
+        rel = Path(*dest.parts[1:])  # drop the leading root anchor
+        return self.backups_root / self.stamp / rel
+
     @staticmethod
     def _replace_into_backup(dest: Path, backup: Path) -> None:
+        backup.parent.mkdir(parents=True, exist_ok=True)
         if backup.exists():
             shutil.rmtree(backup) if backup.is_dir() else backup.unlink()
         os.replace(dest, backup)

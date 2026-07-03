@@ -5,7 +5,8 @@
 # symlinks) keep ~/.claude decoupled from where the repo lives — move or rename
 # the repo and the config keeps working; re-run after a `git pull` to apply
 # updates (same model as the MCPs). A changed real file at a target path is
-# backed up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS before being replaced.
+# backed up under ~/.agentconfig-backups/YYYYMMDD-HHMMSS/<mirrored-path>
+# before being replaced (kept out of scanned skill/agent dirs).
 #
 # Portable skills (no Claude-Code sub-agent / MCP dependency) are ALSO copied
 # into ~/.agents/skills/ so Codex, pi, and opencode pick them up; Crush is
@@ -282,9 +283,13 @@ place_file() {
       echo "  ok       $dest"
       return
     fi
-    local backup="${dest}.backup-${STAMP}"
+    # Keep backups out of any harness-scanned tree (a `<name>.backup-*` left
+    # next to a skill/agent dir registers as a phantom entry) — mirror the
+    # dest under a central home-level backups dir instead.
+    local backup="${HOME}/.agentconfig-backups/${STAMP}${dest}"
     echo "  backup   $dest -> $backup"
     rm -rf "$backup"
+    mkdir -p "$(dirname "$backup")"
     mv "$dest" "$backup"
   else
     echo "  new      $dest"

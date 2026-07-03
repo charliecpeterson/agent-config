@@ -112,16 +112,22 @@ class RenderContextTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             dest = td / "f.txt"
-            ctx = RenderContext("STAMP")
+            backups = td / "backups"
+            ctx = RenderContext("STAMP", backups_root=backups)
             ctx.write_file(dest, "v1", harness="t", asset="a")
             self.assertEqual(dest.read_text(), "v1")
 
             ctx.write_file(dest, "v1", harness="t", asset="a")  # unchanged
-            self.assertEqual(list(td.glob("*.backup-*")), [])
+            self.assertFalse(backups.exists())
 
             ctx.write_file(dest, "v2", harness="t", asset="a")  # changed
             self.assertEqual(dest.read_text(), "v2")
-            self.assertEqual((td / "f.txt.backup-STAMP").read_text(), "v1")
+            # Backup lives under the central tree, never beside the dest (a
+            # sibling `*.backup-*` inside a scanned dir becomes a phantom skill).
+            self.assertEqual(list(td.glob("*.backup-*")), [])
+            found = list(backups.rglob("f.txt"))
+            self.assertEqual(len(found), 1)
+            self.assertEqual(found[0].read_text(), "v1")
 
     def test_symlink_replaced_with_copy(self):
         with tempfile.TemporaryDirectory() as td:
