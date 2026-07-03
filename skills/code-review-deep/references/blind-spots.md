@@ -181,3 +181,21 @@ one-reader tool.
 - **Instance:** orbitron — a global rail wrap-mode plus greedy text fields
   rendered "Save as", "Last", and a long tab label as vertical single-letter
   columns. `ui/shell/src/panels/{appearance/presets.rs,measurements/current.rs,analysis_panel.rs}`.
+
+### Dependency-audit CI red is often the advisory DB, not your change
+- **Trigger:** a security/license audit CI step (`cargo deny`, `npm audit`,
+  `pip-audit`, `osv-scanner`) fails — especially on a change that didn't touch
+  dependencies.
+- **Check:** triage environmental-vs-yours *first*. A freshly published
+  RUSTSEC/CVE against an existing or transitive dep fails *every* commit that
+  day; it isn't your diff. Read which advisory ID and which crate+version it
+  flags, and whether your change actually added that dep.
+- **Caught by:** reading the advisory + dependency path, not assuming the red X
+  means your code. Resolution ladder: upgrade if a patched version fits the
+  semver / transitive constraints; only if it can't, ignore-with-documented-
+  rationale — strongest when the vulnerable path is unreachable (a build-time
+  codegen parser on trusted input, a feature you don't enable).
+- **Instance:** orbitron — `cargo deny` went red on two new quick-xml DoS
+  advisories flagging a version pulled only by wayland-scanner's Wayland-protocol
+  codegen (trusted system XML, never user input). The real fix needed a major
+  winit/wgpu bump, so both were ignored with that rationale in `deny.toml`.

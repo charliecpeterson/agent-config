@@ -25,6 +25,12 @@
   sentinel), and prefer the background-task notification over polling at all.
 - Clean up after yourself: kill stray waiters/containers you spawned, and
   remove throwaway Docker images/build artifacts when done.
+- Don't run overlapping long build/test invocations of the same toolchain
+  (two `cargo test --workspace` at once, or a build on top of a running test).
+  They serialize on the build lock and can wedge — a run that vastly overshoots
+  its usual time is the tell. Check for a running one before launching another,
+  and if one hangs, kill it *and* the orphaned child processes (stray
+  `target/**/deps/*` test binaries) before retrying.
 - When a command is long, or chains/pipes several stages together, write it
   with `\` line continuations so each stage sits on its own line. It runs
   identically (bash treats `\`-newline as one command, so permission-prefix
