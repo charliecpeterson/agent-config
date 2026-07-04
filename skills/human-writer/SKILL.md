@@ -1,6 +1,6 @@
 ---
 name: human-writer
-description: "Use any time you generate or rewrite prose for the user \u2014 emails, documents, posts, proposals, any written content \u2014 so it reads like a sharp human wrote it: direct, specific, no AI tells. Also trigger on \"make this sound less like AI\", \"clean this up\", \"rewrite this\", \"tighten this\". For critique without rewriting, use editor."
+description: "Use any time you generate or rewrite prose for the user \u2014 emails, documents, posts, proposals, any written content \u2014 so it reads like a sharp human wrote it: direct, specific, no AI tells. Also trigger on \"make this sound less like AI\", \"rewrite this\", \"tighten this\", or \"clean this up\" said of prose. NOT for code: \"clean this up\" pointed at code means refactoring, not writing. For critique without rewriting, use editor."
 ---
 
 # Human Writer

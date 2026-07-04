@@ -22,10 +22,11 @@ times in parallel.
 ## When to run the council
 
 For decisions where being wrong is expensive and there's genuine
-uncertainty. Good council questions: "Launch a $97 workshop or a $497
-course?", "Which of these three positioning angles is strongest?",
-"Should I pivot from X to Y — am I crazy?", "Hire a VA or build the
-automation first?", "Here's my landing-page copy, what's weak?"
+uncertainty. Good council questions: "Rewrite the slow MCP server in
+Rust or keep optimizing the Python?", "Which of these three paper
+framings is strongest?", "Should I move the group off environment
+modules to containers — am I crazy?", "Buy a second GPU box or lean on
+the ACCESS allocations?", "Here's my proposal's aims page, what's weak?"
 
 Not for the council: factual lookups (one right answer), creation tasks
 ("write me a tweet"), processing tasks ("summarize this"), or a decision
@@ -177,29 +178,32 @@ Don't make them open the HTML to learn the outcome.
 
 ## Example
 
-**User:** "Council this: I want to build a $297 course on Claude Code
-for beginners. My audience is mostly non-technical solopreneurs. Right
-move?"
+**User:** "Council this: I maintain a dozen personal MCP servers as
+separate repos and keep re-fixing the same launch/config/env plumbing
+in each. I'm thinking of consolidating them into one monorepo with
+shared infrastructure. Right move?"
 
-The five takes diverge hard. The Contrarian: the market's flooded, at
-$297 you compete with free YouTube, non-technical buyers mean high
-support and refund burden. First Principles: what are you actually
-after — revenue (a course is slow), authority (a free resource does
-more), or a customer base for higher-ticket offers (then price and
-audience are mismatched)? The Expansionist: beginner solopreneurs are
-underserved while everyone teaches advanced — own the entry point, and
-$297 might be *low*. The Outsider: "I don't know what Claude Code is —
-that title means nothing to your buyer; sell the outcome, not the
-tool." The Executor: a course is 4-8 weeks to build; run a $97 live
-workshop to 50 people first — if 50 won't buy, 500 won't.
+The five takes diverge hard. The Contrarian: a monorepo couples
+release cycles — one broken dependency bump takes down every server at
+once, and for a solo maintainer the migration is a tax paid up front
+for benefits that mostly never arrive. First Principles: the stated
+problem is duplicated plumbing, not repo count — extract the shared
+launch/config layer into one small library the twelve repos depend on,
+and the monorepo question dissolves. The Expansionist: the shared
+layer is the interesting asset — packaged well, it's the MCP scaffold
+other people are missing; publish it. The Outsider: "I can't tell what
+any of these servers do from their names — whatever you pick, the real
+problem is that nothing lists what exists and what's running." The
+Executor: don't migrate twelve at once; port two servers onto the
+shared layer this weekend and see if the plumbing actually unifies.
 
-**Chairman's verdict:** the beginner-solopreneur demand is real but the
-"Claude Code course" framing won't land with non-technical buyers (the
-Outsider's point, which everyone but the Outsider missed, is the
-highest-leverage insight). Don't build the course yet — validate with a
-$97 workshop titled for the outcome ("automate your first business task
-with AI"), not the tool. One thing first: sell that workshop to 50
-people.
+**Chairman's verdict:** don't build the monorepo. The duplication is
+real but it lives in the plumbing, not the repo layout (First
+Principles' reframe, which the Contrarian's coupling argument
+independently supports, is the highest-leverage insight). Extract the
+shared library, pilot it on two servers per the Executor, and steal
+the Outsider's point: add a one-page registry of what exists. Revisit
+consolidation only if the library doesn't kill the re-fixing.
 
 ## Notes
 
