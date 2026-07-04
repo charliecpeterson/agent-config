@@ -31,8 +31,32 @@ def _state_path(env) -> Path:
 def _harness_dir(manifest: Manifest, env, name: str) -> Path:
     """Config dir for a harness, with `<NAME>_DIR` env override (matches install.sh)."""
     override = env.get(f"{name.upper()}_DIR")
-    base = override or manifest.harnesses[name].config_dir
-    return Path(base).expanduser()
+    if override:
+        return Path(override).expanduser()
+    base = Path(manifest.harnesses[name].config_dir).expanduser()
+    # manifest.toml writes ~/.config/<harness>; honor XDG_CONFIG_HOME the way
+    # install.sh does (${XDG_CONFIG_HOME:-$HOME/.config}) so a Linux box with
+    # XDG set doesn't get its opencode/crush render silently skip-absented.
+    xdg = env.get("XDG_CONFIG_HOME")
+    default_cfg = Path.home() / ".config"
+    if xdg and base.is_relative_to(default_cfg):
+        base = Path(xdg).expanduser() / base.relative_to(default_cfg)
+    return base
+
+
+def _agents_skills_dir(env) -> Path:
+    p = env.get("AGENTS_SKILLS_DIR")
+    return Path(p).expanduser() if p else Path.home() / ".agents" / "skills"
+
+
+def _emit_portable_skills(manifest: Manifest, repo_root: Path, ctx: RenderContext, dest_root: Path) -> None:
+    """Copy portable skills to the shared dir opencode and pi read natively
+    (Crush via skills_paths; Codex registers config.toml paths instead).
+    A skill dropped from the portable list surfaces in the stale report —
+    per D7 the generator never deletes."""
+    for name in sorted(manifest.portable_skills):
+        ctx.copy_path(repo_root / "skills" / name, dest_root / name,
+                      harness="shared", asset="portable-skills")
 
 
 def build_adapters(manifest: Manifest, env) -> list:
@@ -75,6 +99,11 @@ def run(repo_root, *, dry_run: bool = False, env=None, stamp: str | None = None)
                     adapter.validate(art)
                 except Exception as e:  # noqa: BLE001
                     ctx.record_failure(f"{adapter.HARNESS}:validate", e)
+
+    try:
+        _emit_portable_skills(manifest, repo_root, ctx, _agents_skills_dir(env))
+    except Exception as e:  # noqa: BLE001
+        ctx.record_failure("portable-skills", e)
 
     ctx.result.stale = state_mod.stale_paths(prior, ctx.result.artifacts)
     state_mod.save(state_path, ctx.result.artifacts, dry_run=dry_run)

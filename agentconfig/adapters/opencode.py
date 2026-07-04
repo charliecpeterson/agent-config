@@ -47,22 +47,30 @@ class OpencodeAdapter(Adapter):
             for m in manifest.mcps
             if m.targets_harness("opencode")
         }
+        # One merge into opencode.json per run: a second write to the same file
+        # would replace the first write's backup, degrading the pre-run restore
+        # point to a half-merged state.
+        updates: dict = {}
         if servers:
+            updates["mcp"] = servers
+        bash = self._bash_permissions(repo_root)
+        if bash:
+            updates["permission"] = {"bash": bash}
+        if updates:
             keyed_merge_json(
-                ctx, self.config_dir / "opencode.json", {"mcp": servers},
-                harness="opencode", asset="mcp",
+                ctx, self.config_dir / "opencode.json", updates,
+                harness="opencode", asset="mcp+permissions",
             )
-        self._emit_permissions(repo_root, ctx)
         # Skills: native (~/.agents/skills) — nothing to do.
 
-    def _emit_permissions(self, repo_root, ctx: RenderContext) -> None:
+    def _bash_permissions(self, repo_root) -> dict | None:
         """Port the bash allow/deny floor to opencode's command-pattern model
         (the 'closest to Claude' permission model — denies port faithfully).
         Read() credential denies are a gap: opencode governs bash/edit, not
         file reads."""
         settings = Path(repo_root) / "settings.json"
         if not settings.is_file():
-            return
+            return None
         allow, deny = load_claude_perms(settings)
         bash = {"*": "ask"}  # Claude's implicit default
         for tool, pat in allow:
@@ -71,10 +79,7 @@ class OpencodeAdapter(Adapter):
         for tool, pat in deny:           # denies last → last-match-wins → they win
             if tool == "Bash":
                 bash[self._glob(pat)] = "deny"
-        keyed_merge_json(
-            ctx, self.config_dir / "opencode.json", {"permission": {"bash": bash}},
-            harness="opencode", asset="permissions",
-        )
+        return bash
 
     @staticmethod
     def _glob(pattern: str) -> str:

@@ -27,9 +27,12 @@ def load(path) -> list[ManagedArtifact]:
     except (json.JSONDecodeError, OSError):
         return []  # corrupt/unreadable state is non-fatal — start fresh
     out = []
-    for d in data.get("artifacts", []):
-        d = {**d, "owned_keys": tuple(d.get("owned_keys", ()))}
-        out.append(ManagedArtifact(**d))
+    try:
+        for d in data.get("artifacts", []):
+            d = {**d, "owned_keys": tuple(d.get("owned_keys", ()))}
+            out.append(ManagedArtifact(**d))
+    except TypeError:
+        return []  # schema drift (field added/removed since last run) — start fresh
     return out
 
 

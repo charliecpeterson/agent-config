@@ -8,11 +8,11 @@
 # backed up under ~/.agentconfig-backups/YYYYMMDD-HHMMSS/<mirrored-path>
 # before being replaced (kept out of scanned skill/agent dirs).
 #
-# Portable skills (no Claude-Code sub-agent / MCP dependency) are ALSO copied
-# into ~/.agents/skills/ so Codex, pi, and opencode pick them up; Crush is
-# pointed at the same dir via skills_paths in its crush.json. The global rules
-# (userprofile/style/communication/engineering) are concatenated into
-# ~/.codex/AGENTS.md, since non-Claude agents don't resolve CLAUDE.md @imports.
+# Portable skills (no Claude-Code sub-agent / MCP dependency) are also placed
+# by the generator into ~/.agents/skills/, which pi and opencode read natively;
+# Crush is pointed at the same dir via skills_paths in its crush.json. The
+# global rules (userprofile/style/communication/engineering) are concatenated
+# into each AGENTS.md, since non-Claude agents don't resolve CLAUDE.md @imports.
 #
 # Config files and skills install non-interactively. The script then prompts,
 # once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/mcps/,
@@ -35,10 +35,10 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Target dirs are env-overridable so the same install can be aimed at a temp
 # tree (used by tests/ to diff legacy placement against the generator).
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
-STAMP="$(date +%Y%m%d-%H%M%S)"
 
-# Cross-agent skill dir read natively by Codex, pi, and opencode, and by Crush
-# via skills_paths. Only skills in PORTABLE_SKILLS land here.
+# Cross-agent skill dir read natively by pi and opencode, and by Crush via
+# skills_paths. The generator places portable skills here; this script only
+# checks it (--check) and points Crush at it.
 AGENTS_SKILLS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
 OPENCODE_DIR="${OPENCODE_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
@@ -58,29 +58,37 @@ detect_compute() {
 }
 COMPUTE_CAP="$(detect_compute)"
 
-# Skills with no Claude-Code-specific machinery (no spawned sub-agents, no
-# bundled MCP server) — safe to expose to other agent CLIs. The list is owned by
-# manifest.toml [skills].portable (the generator validates each entry against a
-# real SKILL.md); we read it here rather than keep a second copy in sync by hand.
-# The heavy skills (code-review-deep, deep-planner, writing-architect,
-# security-review-deep, llm-council) stay Claude-only — they're simply absent
-# from that list.
+# Find a python3 with tomllib (>=3.11) for the generator (and --check).
+_find_python() {
+  local p
+  for p in python3 python3.14 python3.13 python3.12 python3.11; do
+    command -v "$p" >/dev/null 2>&1 || continue
+    "$p" -c 'import tomllib' 2>/dev/null && { echo "$p"; return 0; }
+  done
+  return 1
+}
+
+# Portable-skill list, for --check reporting only — placement and staleness are
+# the generator's job. Parsed with the generator's own manifest loader so this
+# script never grows a second TOML parser that can drift (the old awk version
+# returned an empty list on a reformatted manifest, which once armed an rm -rf
+# pruner here).
 PORTABLE_SKILLS=()
 load_portable_skills() {
-  local s
+  local py s
   PORTABLE_SKILLS=()
+  py="$(_find_python)" || return 0
   while IFS= read -r s; do
     [[ -n "$s" ]] && PORTABLE_SKILLS+=("$s")
-  done < <(awk '
-    /^portable[[:space:]]*=[[:space:]]*\[/ { inlist=1; next }
-    inlist && /\]/                         { inlist=0 }
-    inlist {
-      gsub(/[",]/, ""); gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-      if (length($0)) print
-    }
-  ' "$REPO_DIR/manifest.toml")
+  done < <(PYTHONPATH="$REPO_DIR" "$py" - "$REPO_DIR" <<'PYEOF'
+import sys
+from pathlib import Path
+from agentconfig import manifest
+root = Path(sys.argv[1])
+print("\n".join(sorted(manifest.load(root / "manifest.toml", root).portable_skills)))
+PYEOF
+)
 }
-load_portable_skills
 
 CHECK_ONLY=0
 CONFIG_ONLY=0
@@ -253,49 +261,22 @@ done
 mkdir -p "$CLAUDE_DIR"
 mkdir -p "$CLAUDE_DIR/skills"
 mkdir -p "$CLAUDE_DIR/agents"
-mkdir -p "$AGENTS_SKILLS_DIR"
 # Agents are instructed (style.md) to put scratch output here, not /tmp.
 mkdir -p "$HOME/scratch"
 
-# Copy (not symlink) repo content into place. Copies decouple the installed
-# config from where this repo lives: you can move/rename/relocate the repo and
-# ~/.claude keeps working until you next run. Re-running after a `git pull` is
-# how you apply updates — the same model the MCPs already use. Unchanged targets
-# are left untouched (idempotent no-op); a changed real file is backed up before
-# it's replaced. A leftover symlink from the old install model is replaced with
-# a real copy.
+# Content comparison for --check. Excludes the build/runtime junk the
+# generator's copy ignores (the in-repo MCP venv, caches), so a repo tree
+# that contains them still counts as matching its installed copy.
 _same_content() {
   local a="$1" b="$2"
   if [[ -d "$a" ]]; then
-    diff -rq "$a" "$b" >/dev/null 2>&1
+    diff -rq \
+      -x .venv -x __pycache__ -x .ruff_cache -x .DS_Store \
+      -x '*.egg-info' -x '*.pyc' \
+      "$a" "$b" >/dev/null 2>&1
   else
     cmp -s "$a" "$b"
   fi
-}
-
-place_file() {
-  local src="$1" dest="$2"
-  if [[ -L "$dest" ]]; then
-    rm "$dest"
-    echo "  copy     $dest (was symlink)"
-  elif [[ -e "$dest" ]]; then
-    if _same_content "$src" "$dest"; then
-      echo "  ok       $dest"
-      return
-    fi
-    # Keep backups out of any harness-scanned tree (a `<name>.backup-*` left
-    # next to a skill/agent dir registers as a phantom entry) — mirror the
-    # dest under a central home-level backups dir instead.
-    local backup="${HOME}/.agentconfig-backups/${STAMP}${dest}"
-    echo "  backup   $dest -> $backup"
-    rm -rf "$backup"
-    mkdir -p "$(dirname "$backup")"
-    mv "$dest" "$backup"
-  else
-    echo "  new      $dest"
-  fi
-  mkdir -p "$(dirname "$dest")"
-  cp -R "$src" "$dest"
 }
 
 is_portable_skill() {
@@ -304,23 +285,6 @@ is_portable_skill() {
     [[ "$s" == "$name" ]] && return 0
   done
   return 1
-}
-
-# Remove copies in ~/.agents/skills that no longer correspond to a portable
-# skill — one deleted from the repo, or dropped from manifest's [skills].portable.
-# (Before the switch from symlinks to copies this pruned dangling links; nothing
-# here is a symlink now, so it has to compare against the live portable list.)
-prune_stale_portable() {
-  local dir="$1" entry name
-  [[ -d "$dir" ]] || return 0
-  for entry in "$dir"/*; do
-    [[ -e "$entry" ]] || continue
-    name="$(basename "$entry")"
-    if ! is_portable_skill "$name" || [[ ! -d "$REPO_DIR/skills/$name" ]]; then
-      echo "  prune    $entry (no longer a portable skill)"
-      rm -rf "$entry"
-    fi
-  done
 }
 
 # Point Crush at ~/.agents/skills via skills_paths. Only touch crush.json if
@@ -585,24 +549,29 @@ run_check() {
 
   echo
   echo "Cross-agent (Codex / pi / opencode / Crush):"
-  local pn=0 pbad=0 entry ename
-  for sname in "${PORTABLE_SKILLS[@]}"; do
-    src="$REPO_DIR/skills/$sname"; dest="$AGENTS_SKILLS_DIR/$sname"
-    [[ -d "$src" ]] || continue
-    if [[ ! -e "$dest" ]]; then
-      echo "  ✗ ~/.agents/skills/$sname (missing — re-run ./install.sh)"; ((pbad++)) || true; missing=1
-    elif _same_content "$src" "$dest"; then
-      ((pn++)) || true
-    else
-      echo "  ✗ ~/.agents/skills/$sname (differs — re-run ./install.sh)"; ((pbad++)) || true; missing=1
-    fi
-  done
-  [[ "$pbad" -eq 0 ]] && echo "  ✓ $pn portable skills in ~/.agents/skills"
-  for entry in "$AGENTS_SKILLS_DIR"/*/; do
-    [[ -d "$entry" ]] || continue
-    ename="$(basename "$entry")"
-    is_portable_skill "$ename" || { echo "  ✗ ~/.agents/skills/$ename (stale — no longer portable; re-run ./install.sh to prune)"; missing=1; }
-  done
+  load_portable_skills
+  if [[ ${#PORTABLE_SKILLS[@]} -eq 0 ]]; then
+    echo "  ? portable-skill list unavailable (need python3 >=3.11); skipping ~/.agents/skills check"
+  else
+    local pn=0 pbad=0 entry ename
+    for sname in "${PORTABLE_SKILLS[@]}"; do
+      src="$REPO_DIR/skills/$sname"; dest="$AGENTS_SKILLS_DIR/$sname"
+      [[ -d "$src" ]] || continue
+      if [[ ! -e "$dest" ]]; then
+        echo "  ✗ ~/.agents/skills/$sname (missing — re-run ./install.sh)"; ((pbad++)) || true; missing=1
+      elif _same_content "$src" "$dest"; then
+        ((pn++)) || true
+      else
+        echo "  ✗ ~/.agents/skills/$sname (differs — re-run ./install.sh)"; ((pbad++)) || true; missing=1
+      fi
+    done
+    [[ "$pbad" -eq 0 ]] && echo "  ✓ $pn portable skills in ~/.agents/skills"
+    for entry in "$AGENTS_SKILLS_DIR"/*/; do
+      [[ -d "$entry" ]] || continue
+      ename="$(basename "$entry")"
+      is_portable_skill "$ename" || { echo "  ✗ ~/.agents/skills/$ename (stale — no longer portable; remove it manually)"; missing=1; }
+    done
+  fi
   for af in "$CODEX_DIR/AGENTS.md:Codex" "$OPENCODE_DIR/AGENTS.md:opencode"; do
     if [[ -f "${af%%:*}" ]]; then
       echo "  ✓ ${af%%:*} (${af##*:})"
@@ -720,16 +689,6 @@ run_check() {
 
 [[ "$CHECK_ONLY" -eq 1 ]] && run_check
 
-# Find a python3 with tomllib (>=3.11) for the generator.
-_find_python() {
-  local p
-  for p in python3 python3.14 python3.13 python3.12 python3.11; do
-    command -v "$p" >/dev/null 2>&1 || continue
-    "$p" -c 'import tomllib' 2>/dev/null && { echo "$p"; return 0; }
-  done
-  return 1
-}
-
 # ---------------------------------------------------------------------------
 # Config phase
 # ---------------------------------------------------------------------------
@@ -737,40 +696,25 @@ echo "Installing from: $REPO_DIR"
 echo "Target:          $CLAUDE_DIR"
 echo
 
-# Claude config (rules, skills, sub-agents, hooks) is rendered by the Python
-# generator (agentconfig), which copies into $CLAUDE_DIR. The legacy bash
-# placement it replaced is verified byte-identical by tests/test_golden.py.
-echo "Claude config (via agentconfig generator):"
+# All config placement — Claude (rules, skills, sub-agents, hooks), the other
+# harnesses' renders, and the portable-skill export to ~/.agents/skills — is
+# done by the Python generator (agentconfig). The legacy bash placement it
+# replaced was verified byte-identical before the cut-over (see tests/).
+echo "Config (via agentconfig generator):"
 if py="$(_find_python)"; then
   CLAUDE_DIR="$CLAUDE_DIR" PYTHONPATH="$REPO_DIR" $py -m agentconfig --repo-root "$REPO_DIR" \
     || echo "  warn     generator reported failures (see above)"
 else
-  echo "  manual   need python3 >=3.11 (tomllib) to render Claude config; install it and re-run"
+  echo "  manual   need python3 >=3.11 (tomllib) to render config; install it and re-run"
 fi
-
-# Cross-agent skills export — portable skills copied to ~/.agents/skills, which
-# pi, opencode, and Crush read natively. (Codex does NOT read ~/.agents/skills;
-# the generator registers its skills via config.toml paths instead.) Stays in
-# bash because the generator doesn't own ~/.agents/skills.
-echo
-echo "Cross-agent skills (~/.agents/skills):"
-for skill_dir in "$REPO_DIR/skills"/*/; do
-  [[ -d "$skill_dir" ]] || continue
-  skill_name="$(basename "$skill_dir")"
-  if [[ -f "$skill_dir/SKILL.md" ]] && is_portable_skill "$skill_name"; then
-    place_file "${skill_dir%/}" "$AGENTS_SKILLS_DIR/$skill_name"
-  fi
-done
-
-prune_stale_portable "$AGENTS_SKILLS_DIR"
 
 # ---------------------------------------------------------------------------
 # Other agent CLIs (Codex, pi, opencode, Crush)
 # ---------------------------------------------------------------------------
 echo
 echo "Other agent CLIs (Codex / pi / opencode / Crush):"
-echo "  Portable skills copied into $AGENTS_SKILLS_DIR (pi, opencode read it natively;"
-echo "  Codex registers skill paths in config.toml instead — handled by the generator)."
+echo "  Portable skills placed in $AGENTS_SKILLS_DIR by the generator (pi, opencode"
+echo "  read it natively; Codex registers skill paths in config.toml instead)."
 configure_crush_skills_path
 # Rules and (where the harness supports it) MCP are rendered by the agentconfig
 # generator for all four non-Claude harnesses. pi gets a generated AGENTS.md

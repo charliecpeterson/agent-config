@@ -23,6 +23,7 @@ def _run(base: Path, *, crush_dir: Path):
         "CRUSH_DIR": str(crush_dir),
         "PI_DIR": str(base / ".pi-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
+        "AGENTS_SKILLS_DIR": str(base / "agents-skills"),
     })
 
 

@@ -33,6 +33,7 @@ def _render(claude_dir):
         "CRUSH_DIR": str(base / ".crush-absent"),
         "PI_DIR": str(base / ".pi-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
+        "AGENTS_SKILLS_DIR": str(base / "agents-skills"),
     })
 
 

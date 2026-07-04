@@ -16,6 +16,16 @@ from pathlib import Path
 
 from .model import ManagedArtifact, RunResult
 
+# Build/runtime junk that can sit inside a source dir (install.sh builds the
+# security-review-deep MCP venv in-repo). Never copied into a target, and
+# invisible to tree comparison — otherwise a 45 MB venv gets copied, diffed,
+# and backed up on every run.
+_IGNORED_NAMES = {"__pycache__", ".venv", ".ruff_cache", ".DS_Store"}
+
+
+def _ignored(name: str) -> bool:
+    return name in _IGNORED_NAMES or name.endswith((".egg-info", ".pyc"))
+
 
 class RenderContext:
     def __init__(
@@ -85,7 +95,7 @@ class RenderContext:
     def _copy(src: Path, dest: Path) -> None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         if src.is_dir():
-            shutil.copytree(src, dest)
+            shutil.copytree(src, dest, ignore=lambda _d, names: [n for n in names if _ignored(n)])
         else:
             tmp = dest.with_name(f".{dest.name}.tmp-{os.getpid()}")
             shutil.copyfile(src, tmp)
@@ -124,7 +134,8 @@ class RenderContext:
 
     @classmethod
     def _dirs_equal(cls, a: Path, b: Path) -> bool:
-        cmp = filecmp.dircmp(a, b)
+        ignore = [n for n in {*os.listdir(a), *os.listdir(b)} if _ignored(n)]
+        cmp = filecmp.dircmp(a, b, ignore=ignore)
         if cmp.left_only or cmp.right_only or cmp.diff_files or cmp.funny_files:
             return False
         return all(cls._dirs_equal(a / d, b / d) for d in cmp.common_dirs)
