@@ -1,6 +1,6 @@
 ---
 name: security-review-deep
-description: "Scanner-grounded security audit, distinct from the built-in /security-review. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 24-category threat-model checklist, and produces a triaged report. Trigger on \"deep security review\", \"full security audit\", \"check for CVEs\", \"scan my dependencies\" \u2014 and proactively after changes touching auth, input handling, file/network I/O, crypto, or dependency upgrades."
+description: "Scanner-grounded security audit, distinct from the built-in /security-review. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 24-category threat-model checklist, and produces a triaged report. Trigger on \"deep security review\", \"full security audit\", \"check for CVEs\", \"scan my dependencies\" \u2014 and proactively only after changes touching auth, crypto, deserialization of untrusted input, or dependency upgrades. Ordinary file/network I/O in routine work does NOT trigger this; offer it in a sentence instead of launching it."
 ---
 
 # Security Review
@@ -13,9 +13,9 @@ A disciplined, repeatable process for catching vulnerabilities in a code change.
 - When reviewing a PR or diff
 - When auditing a dependency upgrade
 - When the user asks "is this safe?" or anything in the same neighborhood
-- Proactively after the user finishes work that touches sensitive surface area (auth, file I/O, deserialization, network, crypto, IPC, parsing user input)
+- Proactively after the user finishes work on genuinely sensitive surface area: auth, crypto, deserialization or parsing of untrusted input, dependency upgrades
 
-If unsure whether to trigger: trigger. False positives here are cheap; missing a vuln is not.
+Nearly all code touches files or the network; that alone is not a trigger — this is a full multi-scanner audit, not a lint. If the work merely brushes sensitive territory, offer the review in one sentence and let the user decide.
 
 ## The process
 

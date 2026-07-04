@@ -173,12 +173,12 @@ One ask. Concrete. With a clear next step (link, email, repo, sign-up, etc.)
  
 ## Working with the Presentation Template
  
-The user's template lives at `github.com/charliecpeterson/presentation-template`. It uses Quarto + revealjs. This skill handles **content and layout design**. Claude Code handles the actual `.qmd` file, rendering, and code.
+The user's template lives at `github.com/charliecpeterson/presentation-template`. It uses Quarto + revealjs. This skill handles **content and layout design**; the `.qmd` implementation is a separate concern.
  
 ### Division of labor
  
-- **This skill (Claude.ai):** What goes on each slide. Narrative. Layout selection. Visual QA feedback. Deck-level review.
-- **Claude Code + template:** Writing the `.qmd` file, running `build.sh`, rendering, taking screenshots.
+- **This skill (design):** What goes on each slide. Narrative. Layout selection. Visual QA feedback. Deck-level review.
+- **Implementation (needs filesystem access):** Writing the `.qmd` file, running `build.sh`, rendering, taking screenshots. Do it in the same session if you have the tools; otherwise hand the slide plan to an agent that does.
 ---
  
 ### Layout palette — match content to the right layout

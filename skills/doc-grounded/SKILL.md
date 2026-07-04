@@ -26,8 +26,9 @@ claim is not grounded, so it gets labelled unverified instead of stated.
 
 **Scope:** answer *this question* from *this source*. For "what are people saying about X
 lately" that's `recent-research`; for a rigorous pass through the literature that's
-`deep-research`. This skill assumes the user has a specific source in mind (a docs site, a
-folder of text) and wants the answer pinned to it.
+`deep-research` (a Claude Code plugin skill; if it isn't available in this harness, say so
+and do a citation-backed web pass instead). This skill assumes the user has a specific
+source in mind (a docs site, a folder of text) and wants the answer pinned to it.
 
 ---
 

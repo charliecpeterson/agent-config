@@ -23,7 +23,8 @@ source, stop and go verify it.
 
 **Scope:** this is community-sentiment and current-state research — what people say, what's
 trending, what changed. For a rigorous pass through the scientific or academic literature on a
-topic (papers, citations, methods), that's `deep-research`, not this skill.
+topic (papers, citations, methods), that's `deep-research` (a Claude Code plugin skill), not
+this skill; if it isn't available in this harness, say so and do a citation-backed web pass.
 
 ---
 

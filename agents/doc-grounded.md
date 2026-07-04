@@ -10,7 +10,7 @@ description: >
   thread — the caller gets the grounded answer, not the file dumps. Read-only.
   NOT a web researcher (the skill's web mode runs inline; for community
   sentiment use recent-research) and NOT a general code searcher (use Explore).
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob
 ---
 
 # doc-grounded (local corpus)

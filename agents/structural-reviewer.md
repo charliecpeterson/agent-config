@@ -41,7 +41,7 @@ paragraphs.
 - AI-tell or vocabulary flags (communication.md / human-writer).
 - Specificity audits or domain-jargon calibration (specificity-auditor).
 - Document-level structural decisions (developmental-reviewer ran first).
-- Tone or voice (voice-matcher, when it exists).
+- Tone or voice (voice-matcher).
 
 If a finding is about a single word or a single sentence in isolation,
 it is not yours. If a finding is about whether a section should exist,

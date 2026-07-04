@@ -9,7 +9,7 @@ description: >
   angles at once. Does NOT synthesize, peer-review, or hedge toward
   balance — it argues one angle as hard as it can. Typically invoked by
   the `llm-council` skill.
-tools: Read, Grep, Glob
+tools: Read
 ---
 
 # Council Advisor
@@ -65,6 +65,8 @@ The council only works if the five takes are genuinely independent. So:
   gathered the context and inlined it. Don't go hunting for more — it
   biases you toward the same sources the other advisors would find, and
   independent takes are exactly what the council exists to produce.
+  (A zero-tool agent isn't expressible in frontmatter, so Read stays
+  granted — leave it unused.)
 - **The Outsider uses no tools at all.** Its value is having no context.
   If it reads the workspace, it stops being the Outsider. React only to
   the words in the brief.
