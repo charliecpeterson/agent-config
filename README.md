@@ -76,8 +76,11 @@ Restart your agents afterward so they pick up the new skills. Re-run after a
 ├── agents/             Sub-agents for the Claude-only skills (deep-planner,
 │                       writing-architect, doc-grounded, …).
 ├── hooks/              Hook scripts + status line (Claude).
+├── machines/           One profile per machine; rendered into every harness's
+│                       rules as a "Machines" section (see below).
 ├── manifest.toml       Control plane: harnesses, MCP servers + targeting,
-│                       portable-skill list, the CLAUDE.md preamble.
+│                       portable-skill list, machine host map, the CLAUDE.md
+│                       preamble.
 ├── agentconfig/        The generator (stdlib Python): core, adapters/, the
 │                       reconciler, the managed-state store.
 ├── tests/  test.sh     Stdlib unittest suite (run ./test.sh).
@@ -108,6 +111,18 @@ targets = ["codex", "opencode", "crush"]   # not Claude (manual) or pi (no nativ
 The generator registers each MCP into the native config of every harness in its
 `targets`, pointing at the wrapper command — never writing a secret into a
 generated file.
+
+## Machine profiles
+
+Every render carries a "Machines" section (Claude: `~/.claude/machines.md` +
+an `@import`; the others: appended to their `AGENTS.md`/`CRUSH.md`) so agents
+know which box they're on — specs, role, scheduler — and what else is in the
+fleet, without being reminded. `manifest.toml`'s `[machine.<name>]` blocks map
+hostname globs to `machines/<name>.md` profiles; the matched profile renders
+as "this machine," the rest as the available fleet. An unmatched host falls
+back to a hand-written `~/.agent-config/machine.local.md` (never synced —
+the `settings.local.json` idiom), then to the generic `machines/other.md`.
+Conventions live in [`machines/README.md`](machines/README.md).
 
 ## Personal MCP servers
 

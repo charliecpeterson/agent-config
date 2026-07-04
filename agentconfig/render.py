@@ -34,6 +34,9 @@ class RenderContext:
         self.stamp = stamp
         self.dry_run = dry_run
         self.result = RunResult()
+        # Rendered "## Machines" block ("" = no machines declared). Core fills
+        # it once per run; every adapter appends it to the rules it emits.
+        self.machines_md = ""
         # Backups land under a central tree, NOT beside the dest (see
         # _backup_path). Overridable so tests don't write into $HOME.
         self.backups_root = Path(backups_root) if backups_root else Path.home() / ".agentconfig-backups"

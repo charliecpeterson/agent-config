@@ -39,11 +39,14 @@ def _render(claude_dir):
 
 class ClaudeRenderTest(unittest.TestCase):
     def test_generated_claude_md_matches_repo(self):
+        # The installed CLAUDE.md is the repo one plus the machines import —
+        # machines.md is rendered per machine, so it exists only in the target.
         with tempfile.TemporaryDirectory() as td:
             cd = Path(td) / ".claude"
             _render(cd)
             self.assertEqual(
-                (cd / "CLAUDE.md").read_text(), (REPO / "CLAUDE.md").read_text()
+                (cd / "CLAUDE.md").read_text(),
+                (REPO / "CLAUDE.md").read_text() + "@./machines.md\n",
             )
 
     def test_every_source_asset_placed_and_equal(self):

@@ -13,6 +13,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+from . import machines as machines_mod
 from . import manifest as manifest_mod
 from . import state as state_mod
 from .adapters import (
@@ -81,6 +82,10 @@ def run(repo_root, *, dry_run: bool = False, env=None, stamp: str | None = None)
 
     manifest = manifest_mod.load(repo_root / "manifest.toml", repo_root)
     ctx = RenderContext(stamp, dry_run=dry_run)
+    try:
+        ctx.machines_md = machines_mod.machines_section(manifest, repo_root, env)
+    except Exception as e:  # noqa: BLE001 — rules still render without the section
+        ctx.record_failure("machines", e)
     state_path = _state_path(env)
     prior = state_mod.load(state_path)
 

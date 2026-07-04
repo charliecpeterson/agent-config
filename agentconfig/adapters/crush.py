@@ -35,7 +35,7 @@ class CrushAdapter(Adapter):
         # Rules → CRUSH.md (Crush auto-loads it; separate file, no merge).
         ctx.write_file(
             self.config_dir / "CRUSH.md",
-            render_agents_md(manifest, repo_root),
+            render_agents_md(manifest, repo_root, ctx.machines_md),
             harness="crush", asset="rules", source_ref="generated",
         )
         servers = {

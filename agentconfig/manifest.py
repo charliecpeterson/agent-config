@@ -34,6 +34,12 @@ class Mcp:
 
 
 @dataclass(frozen=True)
+class Machine:
+    name: str
+    hosts: tuple[str, ...]   # hostname glob patterns; first match wins
+
+
+@dataclass(frozen=True)
 class Manifest:
     repo_name: str
     rule_files: tuple[str, ...]
@@ -41,6 +47,7 @@ class Manifest:
     portable_skills: frozenset[str]
     harnesses: dict[str, Harness]
     mcps: tuple[Mcp, ...]
+    machines: tuple[Machine, ...]
 
 
 def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
@@ -97,6 +104,14 @@ def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
             targets=frozenset(m.get("targets", ["*"])),
         ))
 
+    machines = []
+    for name, m in data.get("machine", {}).items():
+        if not (repo_root / "machines" / f"{name}.md").is_file():
+            raise ManifestError(f"[machine.{name}] has no machines/{name}.md profile")
+        machines.append(Machine(name=name, hosts=tuple(m.get("hosts", []))))
+    if machines and not (repo_root / "machines" / "other.md").is_file():
+        raise ManifestError("[machine.*] entries need the machines/other.md fallback")
+
     return Manifest(
         repo_name=repo_name,
         rule_files=rule_files,
@@ -104,6 +119,7 @@ def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
         portable_skills=portable,
         harnesses=harnesses,
         mcps=tuple(mcps),
+        machines=tuple(machines),
     )
 
 

@@ -85,9 +85,11 @@ constraints.
 
 ## Compute & access
 
-- **Local Mac**: M2 Ultra, 192 GB unified memory.
-- **Local Linux**: RTX 4090 (24 GB VRAM), 64 GB system RAM.
-- **HPC**: Stampede3 (TACC), Anvil (Purdue) via NSF ACCESS.
+- The machine fleet — which box this session is on (specs, role,
+  scheduler) and what else is available — is in the **Machines**
+  section of this config, rendered per machine from the repo's
+  `machines/` profiles. Read it rather than asking, and suggest a
+  better-suited machine when a task clearly fits one.
 - Compute is rarely the bottleneck. Data coverage, label quality,
   and method validity are the more common limits.
 

@@ -64,7 +64,7 @@ class CodexAdapter(Adapter):
     def _emit_rules(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         ctx.write_file(
             self.config_dir / "AGENTS.md",
-            render_agents_md(manifest, repo_root),
+            render_agents_md(manifest, repo_root, ctx.machines_md),
             harness="codex", asset="rules", source_ref="generated",
         )
 

@@ -44,6 +44,12 @@ class ClaudeAdapter(Adapter):
             )
         preamble = manifest.claude_preamble.rstrip("\n")
         imports = "".join(f"@./{name}\n" for name in manifest.rule_files)
+        if ctx.machines_md:
+            ctx.write_file(
+                self.config_dir / "machines.md", ctx.machines_md,
+                harness="claude", asset="machines", source_ref="generated",
+            )
+            imports += "@./machines.md\n"
         ctx.write_file(
             self.config_dir / "CLAUDE.md", f"{preamble}\n\n{imports}",
             harness="claude", asset="rules", source_ref="generated",

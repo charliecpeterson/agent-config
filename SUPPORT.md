@@ -10,6 +10,7 @@ Legend: ✅ ported · ✅ⁿ native (the harness reads a shared dir, no work nee
 | Asset | Claude | Codex | opencode | Crush | pi |
 |-------|:--:|:--:|:--:|:--:|:--:|
 | **Rules** (instructions) | ✅ `CLAUDE.md` | ✅ `AGENTS.md` | ✅ `AGENTS.md` | ✅ `CRUSH.md` | ✅ `~/.pi/agent/AGENTS.md` |
+| **Machine profile** | ✅ `machines.md` import | ✅ in `AGENTS.md` | ✅ in `AGENTS.md` | ✅ in `CRUSH.md` | ✅ in `AGENTS.md` |
 | **Skills** | ✅ `~/.claude/skills` | ✅ `config.toml` paths | ✅ⁿ `~/.agents/skills` | ✅ⁿ `~/.agents/skills` | ~ |
 | **MCP servers** | manual¹ | ✅ `[mcp_servers]` | ✅ `mcp` | ✅ `mcp` | **gap** (no native MCP) |
 | **Permissions** | ✅ `settings.json` | **gap** | ✅ `permission.bash` | **gap** | **gap** |

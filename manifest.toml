@@ -40,6 +40,23 @@ portable = [
   "stampede3-submit",
 ]
 
+# Machine profiles (machines/<name>.md), matched against this host at render
+# time — first glob match wins. The matched profile renders as "this machine";
+# the rest render as the available fleet. Unmatched hosts fall back to
+# ~/.agent-config/machine.local.md (hand-written, never synced), then
+# machines/other.md.
+[machine.mac-studio]
+hosts = ["charlie-m2studio*"]
+
+[machine.linux-4090]
+hosts = []   # fill in that box's hostname pattern on first install there
+
+[machine.stampede3]
+hosts = ["*stampede3.tacc.utexas.edu"]
+
+[machine.anvil]
+hosts = ["*.anvil.rcac.purdue.edu"]
+
 [harness.claude]
 config_dir = "~/.claude"
 strategy = "separate-file"   # copies into ~/.claude; settings.json is a copy

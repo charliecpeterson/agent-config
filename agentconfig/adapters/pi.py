@@ -31,7 +31,7 @@ class PiAdapter(Adapter):
     def emit(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         ctx.write_file(
             self.config_dir / "AGENTS.md",
-            render_agents_md(manifest, repo_root),
+            render_agents_md(manifest, repo_root, ctx.machines_md),
             harness="pi", asset="rules", source_ref="generated",
         )
         # MCP: GAP — pi has no native MCP (extension-only).

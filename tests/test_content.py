@@ -89,6 +89,19 @@ class AgentLint(unittest.TestCase):
             )
 
 
+class MachineLint(unittest.TestCase):
+    def test_profiles_and_manifest_in_sync(self):
+        # manifest.load already fails on a declared machine with no profile;
+        # this catches the reverse — a profile file nothing declares.
+        m = manifest_mod.load(REPO / "manifest.toml", REPO)
+        declared = {x.name for x in m.machines}
+        on_disk = {p.stem for p in (REPO / "machines").glob("*.md")} - {"other", "README"}
+        self.assertEqual(
+            on_disk, declared,
+            "machines/*.md and manifest [machine.*] entries out of sync",
+        )
+
+
 class SupportLint(unittest.TestCase):
     def test_agent_count_current(self):
         m = re.search(r"The (\d+) agents", (REPO / "SUPPORT.md").read_text())
