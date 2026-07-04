@@ -151,17 +151,18 @@ Scanner alternatives worth knowing about:
 
 ```bash
 # GitHub Actions (.github/workflows/*.yml) — workflow-injection,
-# pull_request_target misuse, over-privileged tokens. Non-negotiable in
-# 2026 after the March 2026 aquasecurity/trivy-action -> LiteLLM PyPI
-# compromise.
+# pull_request_target misuse, over-privileged tokens. A repeatedly
+# exploited supply-chain class (compromised actions have pivoted into
+# PyPI publishes); non-negotiable when workflows are present.
 zizmor --format=json .github/workflows/ > "$WORKDIR/zizmor.json"
 
 # Dockerfile (Dockerfile, **/Dockerfile.*) — author-time issues trivy misses
 hadolint --format=json $(find . -name 'Dockerfile*' -not -path '*/node_modules/*') > "$WORKDIR/hadolint.json"
 
 # IaC: Terraform (*.tf), Kubernetes (k8s/, helm/), CloudFormation, ARM,
-# Bicep, Serverless. Checkov is the broadest open-source IaC scanner in
-# 2026 (tfsec is deprecated, terrascan is archived).
+# Bicep, Serverless. Checkov is the broadest open-source IaC scanner
+# (tfsec is deprecated, terrascan is archived — verify via
+# recent-research before recommending a replacement).
 checkov -d . --framework all -o json -s --skip-path node_modules > "$WORKDIR/checkov.json"
 
 # Kubernetes manifest quality (k8s/, helm/, *.yaml with `kind:`). Checkov
@@ -292,9 +293,9 @@ Order of preference for dependency CVE lookups:
 Do NOT fall back to "recall the CVE from memory" — that's how CVE IDs get
 hallucinated. If the tools aren't available, say so explicitly in the report.
 
-NVD enrichment dropped to ~15-20% of CVEs in April 2026, so `lookup_cve`
-results may be sparse. OSV + GHSA + KEV is now the primary trio; treat NVD
-as supplementary.
+NVD enrichment has been unreliable since its analysis backlog began in 2024,
+so `lookup_cve` results may be sparse. Treat OSV + GHSA + KEV as the primary
+trio and NVD as supplementary.
 
 #### Reachability gate (apply to every dep CVE before flagging)
 
@@ -345,7 +346,7 @@ Read `references/threat-checklist.md` for the full list. The top categories:
 19. **Business logic** — payment / coupon / refund abuse, workflow step skipping, race-on-balance, signed-message replay, state-machine bypass, mass assignment
 20. **LLM / AI agent / MCP** — direct + indirect prompt injection, insecure output handling, excessive agency, system-prompt leakage, RAG poisoning, unbounded consumption; MCP-specific tool-arg validation, no shell from args, SSRF in fetch tools, auth on connect
 21. **Negative space** — for each addition, ask what *wasn't* added: route missing from auth allowlist, PII field missing from log scrubber, weakened control in the deletion side of the diff, new background job using elevated creds
-22. **AI-generated code red flags** — if the diff looks AI-shaped, do an extra pass on input handling, error paths, and duplicate helpers; AI-generated code carries ~2.74x the vuln density on average. Also walk the "looks done but isn't" sub-list: validators that don't validate, tests that test nothing, dead branches, half-refactored identifiers, TODO/FIXME left in production paths, feature flags that don't kill, retry loops with no upper bound.
+22. **AI-generated code red flags** — if the diff looks AI-shaped, do an extra pass on input handling, error paths, and duplicate helpers; studies consistently find AI-generated code carries substantially higher vuln density than human-written code. Also walk the "looks done but isn't" sub-list: validators that don't validate, tests that test nothing, dead branches, half-refactored identifiers, TODO/FIXME left in production paths, feature flags that don't kill, retry loops with no upper bound.
 23. **Memory safety and unsafe constructs** — only when Rust / C / C++ / Go is in the diff. Rust: `unsafe` blocks need `// SAFETY:` justification; no `.unwrap()` / `.expect()` / `panic!()` / `todo!()` on reachable paths; integer overflow handling explicit. C/C++: bounded buffer ops, no format-string holes, UAF / double-free / uninitialized memory, integer overflow on size arithmetic. Go: errors checked at every call site, `context.Context` propagated, no goroutine leaks, no `defer` in loops.
 24. **Context-specific surfaces (when relevant)** — Mobile (cert pinning, deep-link validation, exported components, Keychain/Keystore, WebView hardening). Cloud IAM (no `*:*`, OIDC trust-policy wildcards, AssumeRole chains, KMS key policies, VPC SGs, audit-log integrity). Skip the sub-block that doesn't apply.
 
@@ -573,7 +574,7 @@ The scanner versions the skill was last exercised against. Drift past these is e
 | trivy        | 0.70.0              |
 | osv-scanner  | 2.3.8               |
 | pip-audit    | 2.10.0              |
-| zizmor       | latest stable (Trail of Bits release, May 2026) |
+| zizmor       | latest stable       |
 | hadolint     | latest stable       |
 | checkov      | latest stable       |
 | syft / grype | latest stable       |
