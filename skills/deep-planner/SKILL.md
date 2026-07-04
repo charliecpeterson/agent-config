@@ -155,22 +155,11 @@ At the end of each phase, write what was just confirmed to the
 relevant section of the file. Don't wait until Phase 9 to materialize
 the document. The file should be readable at any interruption point.
  
-Specifically:
-- After Phase 0: create the file with Goal, Scope, and a stub for
-  every other section.
-- After Phase 3 (and each subsequent decision confirmation): append
-  to the Decision Log.
-- After Phase 4 and Phase 5: update Open Questions and Deferred
-  Register as needed.
-- After Phase 6: write the Research Summary section.
-- After Phase 7: write the Production-Readiness Audit section,
-  including items moved to the Deferred Register.
-- After Phase 8: write the Architecture section (verbatim from the
-  drafter).
-- After Phase 9: write the Roadmap section with `- [ ]` checkboxes.
- 
-The file's "Last updated" line and "Current phase" line at the top
-both update on every write.
+The full template — section list, which sections always appear vs.
+which are phase-gated, and the per-phase update protocol — lives in
+`references/project-plan-template.md`. Load it once when creating the
+file at Phase 0; it stays in context for the incremental updates that
+follow. The conductor creates with `Write` and updates with `Edit`.
  
 ### Re-invocation: planning on an existing project
  
@@ -263,27 +252,39 @@ Pick one. When in doubt, ask plainly: "Do you want me to
 interrogate the plan from scratch, or read the existing code first
 and surface what I find?"
  
-**In both modes, ask the Goal question first, before any expensive
-orientation:**
+Open the session to match the mode (if the invocation args already
+stated a Goal, swap the Goal question for the confirm-the-args line
+above). Greenfield:
  
-> "In one sentence, what does 'done' look like for this planning
-> session?"
+> "Before we build anything, let's make sure we fully understand
+> what we're building and why. I'll ask one question at a time
+> until we've resolved every decision. Nothing gets assumed. You
+> make every call.
+>
+> What does 'done' look like for this project, in one sentence?"
  
-The Goal scopes everything that follows. In analysis-first mode,
-the orientation reads only what's relevant to the stated goal, not
-the whole codebase. The one-line Goal costs almost no tokens and
-saves a lot of unscoped reading. Without it, the conductor will
-inventory things the user doesn't care about.
+Analysis-first:
+ 
+> "I see existing code here. One scoping question before I read
+> anything: what does 'done' look like for this planning session,
+> in one sentence? I'll ground the rest of my questions in the
+> code once I know what we're aiming at."
+ 
+Both openings lead with the Goal question, and that's deliberate:
+**the Goal comes before any expensive orientation.** It scopes
+everything that follows — in analysis-first mode the orientation
+reads only what's relevant to the stated goal, not the whole
+codebase. The one-line Goal costs almost no tokens and saves a lot
+of unscoped reading. Without it, the conductor will inventory
+things the user doesn't care about.
  
 After the Goal is captured, establish the remaining foundational
 items. The order varies by mode (see the mode subsections below):
  
 1. **End goal** — captured above, in one sentence.
-2. **Archetype** — primary + any secondaries. **Load
-   `references/archetypes.md` only if the archetype isn't already
-   obvious** from the goal and codebase. A standalone CLI tool is
-   library/CLI; a Slurm web service is product/service; don't load
-   119 lines of reference to confirm the obvious.
+2. **Archetype** — primary + any secondaries (loading rule in
+   **Archetypes** above; don't load the reference to confirm the
+   obvious).
 3. **Scope** — what's in, what's definitely out.
 4. **Deadline or urgency** — exploratory, or shipping against a
    date?
@@ -319,9 +320,7 @@ lead with concrete recommendations and ask the user to push back.
  
 For analysis-first mode (and any case where existing code or
 existing docs are worth understanding), do a **bounded** read
-**after the Goal is captured**, scoped to the Goal. The Goal
-filters what's worth reading; without it, the conductor will
-inventory things irrelevant to what the user actually wants.
+scoped to the confirmed Goal.
  
 For small code and small docs (one or two manifests, a short
 README, a handful of source files), read directly: top-level
@@ -387,9 +386,6 @@ Do not audit code quality (that's `code-review-deep`), do not
 start mapping decisions, do not pick a stack. Full research is
 fenced to the post-gate pipeline.
  
-If neither `PROJECT_PLAN.md` nor meaningful code is present,
-proceed cold (greenfield mode).
- 
 #### Bounded orientation fetch
  
 During Phase 0 and Phase 1, if the user names a specific external
@@ -401,13 +397,9 @@ deeper research, no candidate ranking, no library evaluation.
  
 #### Existing-project analysis-first mode
  
-When running in this mode:
+When running in this mode (Goal question first, then the bounded
+orientation above — same order as always):
  
-- **Goal first.** Ask the one-line Goal question before any
-  orientation. The Goal scopes the orientation that follows.
-- **Then bounded orientation, scoped to the Goal.** Use Explore
-  agents for substantial code or large docs (see the **Bounded
-  codebase orientation** subsection above).
 - Lead with the findings. Show the user what you found before
   asking more questions.
 - Treat the findings as evidence the user gets to disagree with,
@@ -436,10 +428,9 @@ When running in this mode:
 #### Closing Phase 0
  
 Phase 0 is complete when `PROJECT_PLAN.md` exists at the project
-root and all five foundational items are recorded in it. The
-template lives at `references/project-plan-template.md`; load it
-once when creating the file. Then proceed to the **Eject Check**
-below.
+root (template-loading rule under **The Project Plan File**) and
+all five foundational items are recorded in it. Then proceed to
+the **Eject Check** below.
  
 ---
  
@@ -593,22 +584,6 @@ After Phase 9 returns, the conductor comes back here to finalize
  
 ---
  
-## Structure of PROJECT_PLAN.md
- 
-The file is a **living document** at the project root, created at
-Phase 0 and updated incrementally as each phase completes. Sections
-marked **(always)** appear from Phase 0 onward, even if empty.
-Sections marked **(if Phase X ran)** appear once that phase has
-run. The conductor writes via `Write` (initial creation) and `Edit`
-(incremental updates).
- 
-**Load `references/project-plan-template.md` once** when creating
-the file at Phase 0. It stays in context for the incremental
-updates that follow; don't reload it on every Edit. That file
-holds the full template and the per-phase update protocol.
- 
----
- 
 ## Tone and Manner
  
 Direct, warm, efficient. Acknowledge and move on; don't celebrate
@@ -634,36 +609,3 @@ obvious from the principles alone.
 | Default to the heavy decision-mapping path on a mature project | Recommend focused-tasks or prioritized-roadmap at the Eject Check |
 | Re-ask the Goal when the invocation args already state one | Confirm the args-as-Goal in one turn and move on |
 | Re-load a reference file already in context | Load once; treat it as resident for the rest of the session |
- 
----
- 
-## Session Start Script
- 
-Before opening, run the Phase 0 initial check: does `PROJECT_PLAN.md`
-exist? Is there substantial code in the directory?
- 
-**If re-invocation** (PROJECT_PLAN.md exists): open by acknowledging
-the existing plan and following the re-invocation flow.
- 
-**If greenfield** (empty or sparse directory): open with:
- 
-> "Before we build anything, let's make sure we fully understand
-> what we're building and why. I'll ask one question at a time
-> until we've resolved every decision. Nothing gets assumed. You
-> make every call.
->
-> What does 'done' look like for this project, in one sentence?"
- 
-**If existing-project analysis-first** (substantial code present):
-open with:
- 
-> "I see existing code here. Let me read it before asking
-> anything, so my questions are grounded in what already exists
-> rather than starting from a blank slate. One moment."
- 
-Then dispatch the bounded codebase orientation (preferably parallel
-`Explore` agents for non-trivial codebases), surface findings, and
-let Goal / Archetype / Scope emerge from the dialogue.
- 
-In either non-re-invocation case, you can also ask the user up
-front which mode they'd prefer if it's genuinely ambiguous.
