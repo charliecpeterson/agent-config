@@ -58,10 +58,11 @@ detect_compute() {
 }
 COMPUTE_CAP="$(detect_compute)"
 
-# Find a python3 with tomllib (>=3.11) for the generator (and --check).
+# Prefer an activated environment's python, then find an interpreter with
+# tomllib (>=3.11) for the generator (and --check).
 _find_python() {
   local p
-  for p in python3 python3.14 python3.13 python3.12 python3.11; do
+  for p in python python3 python3.14 python3.13 python3.12 python3.11; do
     command -v "$p" >/dev/null 2>&1 || continue
     "$p" -c 'import tomllib' 2>/dev/null && { echo "$p"; return 0; }
   done

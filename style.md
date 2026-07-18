@@ -11,6 +11,24 @@
 - `/tmp` is still fine when a tool requires it, or for kilobyte-scale
   files that die with the session.
 
+## Python environments
+
+- Never install packages into the macOS or system Python.
+- Before running Python, inspect the repository for its established package
+  and environment tooling: `pyproject.toml`, `environment.yml`, `uv.lock`,
+  requirements files, `.venv`, and the README.
+- Prefer the project's existing environment. When a virtual environment or
+  conda environment is activated, use its `python` rather than a system
+  `python3` found elsewhere on `PATH`.
+- For stdlib-only scripts, use the available interpreter without creating an
+  environment.
+- If dependencies are needed and the project has no established environment,
+  create a local `.venv` for ordinary Python projects. Use conda when compiled
+  scientific packages, CUDA, MPI, or non-Python system dependencies require it.
+- Do not create an environment or install packages before checking the project
+  conventions. Do not run `pip install` outside an activated project
+  environment.
+
 ## Running commands and background work
 - For long-running commands (builds, test suites, Docker), start them in
   the background and let the harness's completion notification bring you

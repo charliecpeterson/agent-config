@@ -23,12 +23,19 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", re.D
 
 
 def apply_managed_block(
-    ctx: RenderContext, config_path, block_body: str, *, harness: str, asset: str
+    ctx: RenderContext, config_path, block_body: str, *, harness: str, asset: str,
+    legacy_fragments: tuple[str, ...] = (),
 ) -> None:
     config_path = Path(config_path)
     existing = ""
     if config_path.is_file() and not config_path.is_symlink():
         existing = config_path.read_text()
+
+    # Before this file had markers, Codex MCP tables were written directly to
+    # config.toml. Remove only byte-for-byte legacy copies we now own; a custom
+    # table with the same name remains visible rather than being overwritten.
+    if legacy_fragments:
+        existing = _remove_legacy_fragments(existing, legacy_fragments)
 
     block = f"{BEGIN}\n{block_body.rstrip()}\n{END}\n"
     if _BLOCK_RE.search(existing):
@@ -41,6 +48,20 @@ def apply_managed_block(
     ctx.write_file(
         config_path, new, harness=harness, asset=asset,
         kind="merged", source_ref="managed-block", owned_keys=("managed-block",),
+    )
+
+
+def _remove_legacy_fragments(existing: str, fragments: tuple[str, ...]) -> str:
+    """Remove exact owned fragments outside the managed block."""
+    pieces = _BLOCK_RE.split(existing)
+    matches = _BLOCK_RE.findall(existing)
+    for index, piece in enumerate(pieces):
+        for fragment in fragments:
+            piece = piece.replace(fragment, "")
+        pieces[index] = piece
+    return "".join(
+        piece + (matches[index] if index < len(matches) else "")
+        for index, piece in enumerate(pieces)
     )
 
 

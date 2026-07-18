@@ -107,6 +107,24 @@ class CodexSkillsTest(unittest.TestCase):
 
 
 class CodexMcpTest(unittest.TestCase):
+    def test_legacy_mcp_entry_is_migrated_into_managed_block(self):
+        import tomllib
+        legacy = (
+            "[mcp_servers.transcribemcp]\n"
+            f'command = "{Path.home()}/mcps/bin/transcribemcp-run"\n'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            codex = base / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(legacy)
+            _run(base, codex_dir=codex)
+
+            text = (codex / "config.toml").read_text()
+            self.assertEqual(text.count("[mcp_servers.transcribemcp]"), 1)
+            self.assertEqual(text.count(">>> agent-config managed"), 1)
+            self.assertIn("transcribemcp", tomllib.loads(text)["mcp_servers"])
+
     def test_mcp_registered_alongside_skills_one_block(self):
         import tomllib
         with tempfile.TemporaryDirectory() as td:

@@ -41,13 +41,17 @@ class CodexAdapter(Adapter):
         if skill_paths:
             blocks.append(skills_config_block(skill_paths))
         servers = self._mcp_servers(manifest)
+        legacy_fragments: tuple[str, ...] = ()
         if servers:
-            blocks.append(mcp_servers_block(servers))
+            mcp_block = mcp_servers_block(servers)
+            blocks.append(mcp_block)
+            legacy_fragments = (mcp_block,)
         if blocks:
             apply_managed_block(
                 ctx, self.config_dir / "config.toml",
                 "\n\n".join(blocks),
                 harness="codex", asset="config",
+                legacy_fragments=legacy_fragments,
             )
         # Hooks: GAP. The Claude hook scripts are bound to Claude's hook I/O
         # contract (.tool_input.* in, hookSpecificOutput out); run by Codex they
