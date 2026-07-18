@@ -1,6 +1,6 @@
 ---
 name: doc-grounded
-description: "Answer a how-to / syntax / config / factual question from a SOURCE the user points you at, not from memory, and cite the exact location so they can open it and read around it. Two modes: WEB (a docs URL, e.g. the NWChem manual) and LOCAL (a directory or file of markdown/plain-text docs, e.g. a folder of papers or notes). Trigger when the user gives a doc link or a local path alongside a question, or asks for tool/software syntax where a stale answer would be wrong (NWChem, Slurm, a library's API). For community sentiment use recent-research; for an academic literature survey use deep-research."
+description: "Answer a how-to / syntax / config / factual question from a SOURCE the user points at (a docs URL, or a local file/directory of docs), not from memory, and cite the exact location so they can read around it. Trigger on a doc link or local path plus a question, or tool/software syntax where a stale answer would be wrong (NWChem, Slurm, a library's API). For community sentiment use recent-research; for a literature survey use deep-research."
 ---
 
 # doc-grounded: Answer from the source, and say where you found it

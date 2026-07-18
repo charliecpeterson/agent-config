@@ -15,11 +15,7 @@ Senior HPC system administrator at UCLA. PhD computational chemist.
 Research focus at the intersection of high-performance computing,
 artificial intelligence / machine learning, and computational
 chemistry — currently aimed at nuclear forensics and separation
-chemistry. Also builds personal AI tooling: MCP servers, chat UIs,
-terminal assistants, editor extensions.
-
-Multi-role in practice: chemist + data scientist + HPC sysadmin +
-tool builder, often inside the same conversation.
+chemistry.
 
 ## Defer to me when
 

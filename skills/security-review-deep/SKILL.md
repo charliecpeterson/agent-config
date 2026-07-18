@@ -1,6 +1,6 @@
 ---
 name: security-review-deep
-description: "Scanner-grounded security audit, distinct from the built-in /security-review. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 24-category threat-model checklist, and produces a triaged report. Trigger on \"deep security review\", \"full security audit\", \"check for CVEs\", \"scan my dependencies\" \u2014 and proactively only after changes touching auth, crypto, deserialization of untrusted input, or dependency upgrades. Ordinary file/network I/O in routine work does NOT trigger this; offer it in a sentence instead of launching it."
+description: "Scanner-grounded security audit, distinct from the built-in /security-review: runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVEs via MCP, walks a 24-category threat-model checklist, and produces a triaged report. Trigger on \"deep security review\", \"full security audit\", \"check for CVEs\", \"scan my dependencies\", or proactively after changes touching auth, crypto, deserialization, or dependency upgrades. Routine file/network I/O does NOT trigger; offer it in a sentence instead."
 ---
 
 # Security Review
@@ -88,96 +88,13 @@ TO gitleaks detect --no-banner --report-format=json --report-path="$WORKDIR/gitl
 TO trufflehog filesystem . --json --no-update > "$WORKDIR/trufflehog.json"
 ```
 
-Wrap the language-specific and CI/IaC scanner blocks below with the same `TO` helper; the per-scanner block omits the wrapping only for brevity.
+The per-language and CI/IaC scanner blocks live in `references/scanner-catalog.md`, along with install commands, the scheduled CodeQL setup, and the tested-version table. Load the catalog once the diff's languages are known, run only the blocks whose surface appears in the diff, and wrap each invocation in the same `TO` helper.
 
 Gitleaks catches secret-shaped strings via regex; TruffleHog verifies whether a detected secret is *live* against 20+ providers. The two find different things; run both and union the results.
 
-#### Language-specific (gate by file extension in the diff)
+#### Language-specific and CI / IaC scanners
 
-```bash
-# Python (*.py) — common security antipatterns the model often misses
-bandit -r <python-paths> -f json -o "$WORKDIR/bandit.json"
-
-# Go (*.go) — gosec for code patterns, govulncheck for reachable dep vulns
-gosec -fmt=json -out="$WORKDIR/gosec.json" ./...
-govulncheck -json ./... > "$WORKDIR/govulncheck.json"
-
-# JavaScript / TypeScript (*.js, *.ts, *.jsx, *.tsx)
-njsscan --json -o "$WORKDIR/njsscan.json" .
-
-# Ruby / Rails (Gemfile + config/application.rb present)
-brakeman -f json -o "$WORKDIR/brakeman.json" --no-progress
-
-# Shell (*.sh, *.bash) — quoting and command-injection catches
-shellcheck -f json <shell-files> > "$WORKDIR/shellcheck.json"
-
-# Java / Kotlin (*.java, *.kt, pom.xml, build.gradle)
-spotbugs -textui -xml:withMessages -output "$WORKDIR/spotbugs.xml" \
-         -pluginList find-sec-bugs.jar <build-output-dirs>
-
-# Rust (Cargo.toml present) — CVE deps, unsafe blocks, panic-prone code
-cargo audit --json > "$WORKDIR/cargo-audit.json"
-cargo geiger --output-format Json > "$WORKDIR/cargo-geiger.json"
-cargo clippy --all-targets --message-format=json -- \
-    -W clippy::unwrap_used -W clippy::expect_used \
-    -W clippy::panic -W clippy::indexing_slicing \
-    > "$WORKDIR/clippy.json"
-
-# C / C++ (*.c, *.cc, *.cpp, *.h, *.hpp) — classic memory-safety class
-flawfinder --csv <c-paths> > "$WORKDIR/flawfinder.csv"
-cppcheck --enable=warning,performance,portability \
-         --output-file="$WORKDIR/cppcheck.txt" --xml <c-paths>
-clang-tidy <c-paths> \
-    -checks='clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*' \
-    > "$WORKDIR/clang-tidy.txt"
-
-# .NET (*.cs, *.csproj, *.sln) — Roslyn-based security analyzer
-security-scan <solution.sln> --export="$WORKDIR/security-code-scan.sarif"
-
-# PHP (*.php, composer.json) — taint-mode (psalm) catches injection
-# across function boundaries; psalm taint is currently the strongest
-# free PHP SAST.
-vendor/bin/psalm --taint-analysis --report="$WORKDIR/psalm.sarif"
-```
-
-Scanner alternatives worth knowing about:
-
-- **Opengrep** (Jan 2025 community fork of Semgrep CE) is a drop-in
-  replacement if Semgrep's licensing changes bite. Same rule format,
-  same JSON / SARIF output, same `--config=p/...` packs work. Swap
-  the binary name if you need to.
-
-#### CI / build / infra surface (gate by file presence)
-
-```bash
-# GitHub Actions (.github/workflows/*.yml) — workflow-injection,
-# pull_request_target misuse, over-privileged tokens. A repeatedly
-# exploited supply-chain class (compromised actions have pivoted into
-# PyPI publishes); non-negotiable when workflows are present.
-zizmor --format=json .github/workflows/ > "$WORKDIR/zizmor.json"
-
-# Dockerfile (Dockerfile, **/Dockerfile.*) — author-time issues trivy misses
-hadolint --format=json $(find . -name 'Dockerfile*' -not -path '*/node_modules/*') > "$WORKDIR/hadolint.json"
-
-# IaC: Terraform (*.tf), Kubernetes (k8s/, helm/), CloudFormation, ARM,
-# Bicep, Serverless. Checkov is the broadest open-source IaC scanner
-# (tfsec is deprecated, terrascan is archived — verify via
-# recent-research before recommending a replacement).
-checkov -d . --framework all -o json -s --skip-path node_modules > "$WORKDIR/checkov.json"
-
-# Kubernetes manifest quality (k8s/, helm/, *.yaml with `kind:`). Checkov
-# catches policy violations; kube-score catches operational misses
-# (resource limits, readiness probes, security contexts) the policy
-# scanners miss. Optional layer; run if K8s manifests are present.
-kube-score score $(find . -path '*/k8s/*.yaml' -o -path '*/helm/*.yaml') \
-            --output-format json > "$WORKDIR/kube-score.json"
-
-# SBOM + cross-check vuln scanning (independent of OSV; surfaces
-# advisories OSV occasionally misses, and produces an artifact you can
-# diff over time).
-syft . -o cyclonedx-json > "$WORKDIR/sbom.cdx.json"
-grype sbom:"$WORKDIR/sbom.cdx.json" -o json > "$WORKDIR/grype.json"
-```
+Gated by what's in the diff: the per-language commands (bandit, gosec, njsscan, brakeman, shellcheck, spotbugs, cargo-*, flawfinder / cppcheck / clang-tidy, security-scan, psalm) and the CI / build / infra commands (zizmor, hadolint, checkov, kube-score, syft + grype) are in `references/scanner-catalog.md`.
 
 If any tool is missing, note it and continue with the rest. Record the absence in the run-summary JSON (Step 6) as `"ran": false, "reason": "not installed"`. Do not refuse to proceed.
 
@@ -217,48 +134,7 @@ artifact doesn't exist; record in the run summary.
 
 #### Heavier passes for a schedule (CodeQL)
 
-Some scanners are too slow for per-PR but worth running nightly or
-weekly. CodeQL is the canonical example: database-backed semantic
-analysis with interprocedural taint tracking that catches injection
-across function boundaries semgrep / bandit miss. Build time is
-minutes to 30+ minutes for large repos, so it does not belong in
-the fast path.
-
-Recommended pattern: run CodeQL in a scheduled GitHub Actions job
-(free for public repos via Code Scanning; paid for private). Persist
-the SARIF artifact to a known path, and let the next per-PR review
-ingest it as a "last full-pass" finding set.
-
-```yaml
-# .github/workflows/codeql.yml (excerpt)
-on:
-  schedule: [{cron: "17 4 * * *"}]   # daily 04:17 UTC
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    permissions: {contents: read, security-events: write}
-    strategy:
-      matrix:
-        language: [python, javascript, go]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with: {languages: '${{ matrix.language }}', queries: security-extended}
-      - uses: github/codeql-action/analyze@v3
-        with: {output: codeql-results}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: codeql-${{ matrix.language }}-sarif
-          path: codeql-results
-```
-
-The skill then reads `.security-reviews/codeql-latest.sarif` (or
-wherever the artifact lands) in Step 2 alongside the per-PR scanners.
-Findings get a `source: codeql, age: <days-since-job>` tag so the
-reader knows they're from the nightly pass, not the live diff.
-
-Don't try to run CodeQL inline in the per-PR skill invocation; the
-latency makes the skill unusable. Schedule it, ingest it.
+CodeQL (database-backed, interprocedural taint tracking) is too slow for the per-PR path: minutes to 30+ minutes of build time. Run it scheduled, ingest it. The GitHub Actions workflow YAML and rationale live in `references/scanner-catalog.md`. If `.security-reviews/codeql-latest.sarif` (or wherever the artifact lands) exists, read it in Step 2 alongside the per-PR scanners and tag those findings `source: codeql, age: <days-since-job>` so the reader knows they're from the nightly pass, not the live diff.
 
 ### Step 3 — Pull live advisory context (MCP first, scanners as fallback)
 
@@ -448,33 +324,7 @@ serializing.
 
 #### Posting findings as PR review comments
 
-`scripts/post-findings.sh` reads `report.json` and posts one batched
-GitHub review per run, with each finding rendered as an inline comment
-at the `file:line` it points to. Severity-threshold and max-comments
-configurable; defaults are `--min-severity medium --max-comments 50`.
-
-```bash
-# Auto-detects current repo + PR via `gh`. Set WORKDIR or pass --findings.
-./scripts/post-findings.sh --dry-run            # preview without posting
-./scripts/post-findings.sh                      # post one review
-./scripts/post-findings.sh --summary-only       # banner only, no inline
-./scripts/post-findings.sh --min-severity high  # critical + high only
-```
-
-Requires `gh` (logged in) and `jq`. Use this when the skill runs in CI
-and you want findings to land on the PR rather than only in the agent's
-output. Sample CI step:
-
-```yaml
-- name: Post security findings to PR
-  if: github.event_name == 'pull_request'
-  env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: |
-    ./skills/security-review-deep/scripts/post-findings.sh \
-        --findings "$WORKDIR/report.json" \
-        --min-severity high
-```
+`scripts/post-findings.sh` reads `report.json` and posts one batched GitHub review, each finding rendered as an inline comment at its `file:line`. Severity threshold and max-comments configurable; defaults are `--min-severity medium --max-comments 50`. Usage, the sidecar contract, and a sample CI step live in `scripts/README.md`. Requires `gh` (logged in) and `jq`.
 
 If everything passes, the report can be three lines. If it doesn't, it can be ten pages. Length follows findings, never the other way around.
 
@@ -534,27 +384,6 @@ If the user wants something fast (pre-commit hook, sub-30-second turnaround):
 
 Tell the user this is the lightweight pass and a fuller review can be run separately.
 
-## Installing the scanners
-
-The full Step 2 stack relies on tools that aren't all installed by default. On macOS:
-
-```bash
-brew install semgrep gitleaks trivy hadolint shellcheck
-pipx install bandit checkov trufflehog zizmor
-go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest
-go install github.com/securego/gosec/v2/cmd/gosec@latest
-go install golang.org/x/vuln/cmd/govulncheck@latest
-cargo install cargo-audit
-gem install brakeman
-# njsscan
-pipx install njsscan
-# syft + grype
-curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh  | sh -s -- -b /usr/local/bin
-curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-```
-
-Missing tools should be noted in the report's run-summary JSON (`"ran": false, "reason": "not installed"`) rather than blocking the review.
-
 ## When you're stuck
 
 If a scanner errors out, capture the error verbatim, note which scanner, and continue with the others. The review is still valuable even if one tool is broken.
@@ -563,22 +392,4 @@ If the diff is enormous (>2000 lines changed), tell the user up front: full revi
 
 ## Tested versions
 
-The scanner versions the skill was last exercised against. Drift past these is expected and almost always fine; `install.sh --check` is the live source of truth for what's actually on the system. If a finding looks wrong, the first thing to check is whether the tool version has shifted enough that its rule IDs or output schema changed.
-
-| Tool         | Last-tested version |
-| ------------ | ------------------- |
-| semgrep      | 1.164.0             |
-| bandit       | 1.9.4               |
-| gitleaks     | 8.30.1              |
-| trufflehog   | (not installed locally; latest stable) |
-| trivy        | 0.70.0              |
-| osv-scanner  | 2.3.8               |
-| pip-audit    | 2.10.0              |
-| zizmor       | latest stable       |
-| hadolint     | latest stable       |
-| checkov      | latest stable       |
-| syft / grype | latest stable       |
-| njsscan      | latest stable       |
-| MCP server   | this repo, current commit |
-
-Update this table when a known-good upgrade lands, not on every release.
+The scanner versions table lives in `references/scanner-catalog.md` (update it there when a known-good upgrade lands, not on every release).

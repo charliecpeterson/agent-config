@@ -1,6 +1,6 @@
 ---
 name: llm-council
-description: "Run a real decision through a council of five AI advisors who each analyze it from a different thinking lens, peer-review each other anonymously, and synthesize a single verdict. Adapted from Karpathy's LLM Council. MANDATORY TRIGGERS: 'council this', 'run the council', 'pressure-test this', 'stress-test this', 'war room this', 'debate this'. STRONG TRIGGERS when paired with a genuine decision and a real tradeoff: 'should I X or Y', 'which option', 'is this the right move', 'I'm torn between', 'validate this', 'get multiple perspectives'. Do NOT trigger on factual lookups, simple yes/no questions, creation tasks ('write me X'), or a casual 'should I' with no real stakes. DO trigger when the user brings a decision with stakes, multiple options, and context that wants pressure-testing from several angles. Claude Code only — it spawns sub-agents."
+description: "Pressure-test a real decision through five advisor lenses, anonymous peer review, and a single synthesized verdict (Karpathy's LLM Council on sub-agents). Trigger on 'council this', 'run the council', 'pressure-test this', 'stress-test this', 'debate this', or a genuine 'should I X or Y' with real stakes and options. Not for factual lookups, yes/no questions, or creation tasks. Claude Code only."
 ---
 
 # LLM Council

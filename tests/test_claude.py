@@ -38,16 +38,22 @@ def _render(claude_dir):
 
 
 class ClaudeRenderTest(unittest.TestCase):
-    def test_generated_claude_md_matches_repo(self):
-        # The installed CLAUDE.md is the repo one plus the machines import —
-        # machines.md is rendered per machine, so it exists only in the target.
+    def test_generated_claude_md_matches_manifest(self):
+        # Installed CLAUDE.md = manifest preamble + one @import per rule file,
+        # plus the machines import (machines.md renders per machine, so it
+        # exists only in the target). The repo-root CLAUDE.md is a project
+        # file for working on agent-config, not the template for this output.
         with tempfile.TemporaryDirectory() as td:
             cd = Path(td) / ".claude"
             _render(cd)
-            self.assertEqual(
-                (cd / "CLAUDE.md").read_text(),
-                (REPO / "CLAUDE.md").read_text() + "@./machines.md\n",
+            m = manifest_mod.load(REPO / "manifest.toml", REPO)
+            expected = (
+                m.claude_preamble.rstrip("\n")
+                + "\n\n"
+                + "".join(f"@./{name}\n" for name in m.rule_files)
+                + "@./machines.md\n"
             )
+            self.assertEqual((cd / "CLAUDE.md").read_text(), expected)
 
     def test_every_source_asset_placed_and_equal(self):
         with tempfile.TemporaryDirectory() as td:

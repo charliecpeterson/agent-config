@@ -317,71 +317,16 @@ areas, present options and check in; in conductor-led areas,
 lead with concrete recommendations and ask the user to push back.
  
 #### Bounded codebase orientation
- 
-For analysis-first mode (and any case where existing code or
-existing docs are worth understanding), do a **bounded** read
-scoped to the confirmed Goal.
- 
-For small code and small docs (one or two manifests, a short
-README, a handful of source files), read directly: top-level
-package manifest (`package.json`, `pyproject.toml`, `Cargo.toml`,
-`go.mod`, `Project.toml`, etc.), the README, the top-level
-directory layout, maybe one or two key source files.
- 
-**For substantial codebases (many modules) OR large documents
-(design docs, architecture docs, READMEs over ~200 lines), prefer
-parallel `Explore` agent fan-out** over reading content into the
-conductor's context. (`Explore` is Claude Code's built-in read-only
-search agent type — no definition file in `agents/` is needed.) The agents read; their summaries enter your
-context. You never pull the bulk of the codebase or a multi-page
-design doc into the main conversation.
- 
-Dispatch Explore with focused questions tied to the Goal, not
-"inventory everything." Examples:
- 
-- Goal is "ship binary releases" → ask Explore agents about
-  release infrastructure, distribution, CI, install story.
-- Goal is "add a feature" → ask about the relevant subsystem
-  only.
-- Goal is "security audit" → ask about the attack surface,
-  trust boundaries, input handling.
-- Goal is "summarize what this project does" → one Explore
-  agent for the public surface and entry points.
- 
-Avoid the temptation to "do a full inventory while we're here."
-That's exactly the unscoped-orientation failure mode this rule
-exists to prevent.
- 
-##### Fan-out output discipline
- 
-When dispatching multiple Explore agents, two rules with teeth.
-Forget them and the fan-out's whole token-savings story collapses.
- 
-**Rule 1: Disjoint slices.** Each agent gets a non-overlapping
-capability slice and reports capability only. Cross-cutting work
-(competitor comparison, ranking, gap identification, synthesis)
-happens **once in the conductor's context** after all agents
-return. Don't ask four agents "what's missing vs. competitor X"
-and get four overlapping comparison tables you then have to merge.
- 
-**Rule 2: Hard summary constraints in every dispatch prompt.**
-Paste this block verbatim into every Explore (or generic Agent)
-prompt that involves reading code or docs:
- 
-> Constraints on your report:
-> - ≤150 words per question asked.
-> - Raw findings only. No executive summary, no tables, no
->   star-ratings, no per-competitor comparison matrices, no
->   file-path appendix.
-> - If you'd write a heading, you're being too thorough. One
->   short paragraph per finding.
-> - Synthesis is the conductor's job. Report what you found;
->   do not interpret, rank, or compare.
- 
-Without these constraints, agents default to dumping multi-page
-reports into the conductor's context, which defeats the
-lazy-loading architecture this skill is built around.
- 
+
+For analysis-first mode (and any case where existing code or existing
+docs are worth understanding), do a **bounded** read scoped to the
+confirmed Goal — never a full inventory. **Load
+`references/bounded-orientation.md`** when you reach this point: it has
+the small-vs-substantial rule (read directly vs. parallel `Explore`
+fan-out) and the hard summary-constraint block to paste verbatim into
+every dispatch prompt. Load it once; it stays in context for the rest
+of the session.
+
 Do not audit code quality (that's `code-review-deep`), do not
 start mapping decisions, do not pick a stack. Full research is
 fenced to the post-gate pipeline.
@@ -475,67 +420,14 @@ focused-tasks or prioritized-roadmap, not decision-mapping. Don't
 default to the heavy path; recommend the lightest shape that
 actually fits.
  
-#### If focused tasks: eject to task-list output
- 
-Write the focused work directly into `PROJECT_PLAN.md` and end the
-session. Reuse the template; most mid-pipeline sections stay empty.
- 
-- **Goal, Archetype, Scope, Deadline, Expertise calibration**:
-  already filled in from Phase 0.
-- **Decision Log**: append a single entry: choice =
-  "focused-tasks mode," reasoning = one line on why, revisit-if =
-  condition that would warrant a re-plan.
-- **Roadmap**: repurpose as a checkbox task list with the
-  user-confirmed focused work. Use `- [ ]` syntax. Group by
-  thread if the user named multiple (e.g., "Cleanup," "Security
-  pass," "TUI").
-- **Deferred Register, Open Questions**: fill in as appropriate.
-- **Research Summary, Production-Readiness Audit, Architecture**:
-  omit entirely. Don't include empty headings.
-- **Dependencies & Risks**: anything relevant.
- 
-Summarize the task list briefly and end. Do not load
-`references/decision-mapping.md` or
-`references/post-gate-pipeline.md`.
- 
-#### If prioritized roadmap: eject to ranked-roadmap output
- 
-Write a ranked, sequenced gap roadmap into `PROJECT_PLAN.md` and
-end the session. Shape:
- 
-- **Goal, Archetype, Scope, Deadline, Expertise calibration**:
-  from Phase 0.
-- **Decision Log**: a single entry noting "prioritized-roadmap
-  mode" plus any sequencing decisions confirmed with the user
-  (e.g., "distribution-first vs. quick-win first").
-- **Gap Inventory** (new section, insert before Roadmap): findings
-  from the bounded codebase orientation, grouped by theme. Each
-  finding names the gap concretely (what's missing, what's
-  stubbed, what's partial) but not how to fix it.
-- **Roadmap**: phased plan with rationale. For each phase:
-  - Name and one-line identity ("Phase 1: installable and
-    trustworthy" / "Phase 2: cheap analysis wins" etc.).
-  - What's in this phase (concrete items, `- [ ]` checkboxes).
-  - **Why it's at this position in the sequence** (one or two
-    lines: gates downstream work / cheap-high-visibility win /
-    builds momentum / deferred per appetite).
-  - Rough effort framing (days / weeks / sustained).
-  - What this phase explicitly defers to a later phase.
-- **Deferred Register**: items intentionally deferred past the
-  last phase (force field rewrites, large refactors, etc.).
-- **Open Questions**: any genuine forks the user wanted to revisit.
-- **Research Summary, Production-Readiness Audit, Architecture**:
-  omit. Not relevant to a gap-ranking session.
-- **Dependencies & Risks**: anything that could derail sequencing.
- 
-The ranking principle: impact-for-stated-audience divided by
-effort, with the user's stated build appetite as the tiebreaker.
-Surface the principle and the resulting order to the user before
-writing; let them reorder.
- 
-Summarize the roadmap briefly and end. Do not load
-`references/decision-mapping.md` or
-`references/post-gate-pipeline.md`.
+#### If focused tasks or prioritized roadmap: eject with the lean output
+
+Both shapes write directly into `PROJECT_PLAN.md` and end the session.
+**Load `references/eject-shapes.md`** and follow the matching section:
+focused-tasks produces a checkbox task list grouped by thread;
+prioritized-roadmap adds a Gap Inventory section plus a phased,
+sequenced roadmap with per-phase rationale. Do not load
+`references/decision-mapping.md` or `references/post-gate-pipeline.md`.
  
 #### If decision-mapping: load and continue
  

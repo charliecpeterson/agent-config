@@ -484,8 +484,11 @@ run_check() {
   # The installer copies (cp -R / the generator's copytree); nothing is a
   # symlink. A target is healthy when it exists and its content matches the repo
   # source — that's what _same_content checks.
+  # CLAUDE.md is not in this list: the installed one is generated from the
+  # manifest (pinned by tests/test_claude.py), not copied from a repo source,
+  # and the repo-root CLAUDE.md is a project file, so cmp can never match.
   echo "Synced files:"
-  for name in CLAUDE.md userprofile.md style.md communication.md engineering.md settings.json; do
+  for name in userprofile.md style.md communication.md engineering.md settings.json; do
     local dest="$CLAUDE_DIR/$name" src="$REPO_DIR/$name"
     [[ -f "$src" ]] || continue
     if [[ ! -e "$dest" ]]; then

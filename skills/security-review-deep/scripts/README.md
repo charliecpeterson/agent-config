@@ -66,3 +66,19 @@ defaulted; missing fields don't error):
 - `0` posted (or dry-run printed) successfully
 - `1` no findings at or above the threshold (nothing to post)
 - `2` usage / environment error
+
+## CI usage
+
+Use this when the skill runs in CI and you want findings to land on the
+PR rather than only in the agent's output. Sample CI step:
+
+```yaml
+- name: Post security findings to PR
+  if: github.event_name == 'pull_request'
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    ./skills/security-review-deep/scripts/post-findings.sh \
+        --findings "$WORKDIR/report.json" \
+        --min-severity high
+```

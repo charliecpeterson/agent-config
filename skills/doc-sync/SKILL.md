@@ -1,6 +1,6 @@
 ---
 name: doc-sync
-description: "Audit a repo's documentation against its code and bring it back in sync. Inventories all docs (README, guides, per-module READMEs, a docs-site), fans out doc-auditor sub-agents to cross-check every concrete claim against the source, returns a tiered report with proving paths, then — on your call — fixes the stale docs (verifying before each edit) and rebuilds any docs site. Trigger on \"check the docs\", \"are my docs current\", \"audit the documentation\", \"docs drift\", or a pre-release doc pass. NOT for answering a question from docs (use doc-grounded) and NOT for prose/writing quality (use the writing reviewers) — this checks whether the docs are factually true against the code."
+description: "Audit a repo's docs against its code and bring them back in sync: inventory all docs, fan out doc-auditor sub-agents to verify every concrete claim, report drift with proving paths, then fix and rebuild on your call. Trigger on \"check the docs\", \"are my docs current\", \"audit the documentation\", \"docs drift\", or a pre-release doc pass. NOT for answering questions from docs (doc-grounded) or prose quality (writing reviewers)."
 ---
 
 # Doc Sync
