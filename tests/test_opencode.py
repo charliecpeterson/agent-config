@@ -32,6 +32,7 @@ def _run(base: Path, *, oc_dir: Path):
         "PI_DIR": str(base / ".pi-absent"),
         "AGENT_CONFIG_STATE": str(base / "state.json"),
         "AGENTS_SKILLS_DIR": str(base / "agents-skills"),
+        "AGENT_CONFIG_BIN_DIR": str(base / "bin"),
     })
 
 
@@ -83,6 +84,43 @@ class OpencodeTest(unittest.TestCase):
             first = (oc / "opencode.json").read_text()
             _run(base, oc_dir=oc)
             self.assertEqual(first, (oc / "opencode.json").read_text())
+
+    def test_targeted_subagent_is_rendered_read_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            oc = base / "opencode"
+            oc.mkdir()
+            _run(base, oc_dir=oc)
+
+            text = (oc / "agents" / "code-skeptic.md").read_text()
+            self.assertIn("name: code-skeptic", text)
+            self.assertIn("mode: subagent", text)
+            self.assertIn("  edit: deny", text)
+            self.assertNotIn("tools:", text)
+            self.assertIn("Evidence or it didn't happen", text)
+
+    def test_portable_skill_launcher_is_executable(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            oc = base / "opencode"
+            oc.mkdir()
+            _run(base, oc_dir=oc)
+
+            launcher = base / "bin" / "opencode-agent"
+            self.assertTrue(launcher.is_file())
+            self.assertTrue(launcher.stat().st_mode & 0o111)
+            self.assertIn("OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1", launcher.read_text())
+
+    def test_targeted_skill_is_rendered(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            oc = base / "opencode"
+            oc.mkdir()
+            _run(base, oc_dir=oc)
+
+            skill = oc / "skills" / "code-review-deep" / "SKILL.md"
+            self.assertTrue(skill.is_file())
+            self.assertIn("# Code Review", skill.read_text())
 
     def test_jsonc_with_comments_not_clobbered(self):
         with tempfile.TemporaryDirectory() as td:

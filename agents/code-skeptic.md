@@ -45,6 +45,11 @@ Don't do that.
   function, confirm the duplicate is actually duplicated, before it goes
   in the report. Discard your own false positives explicitly — a sentence
   each shows you checked. Never ship "I think X" as "X."
+- **Label numeric claims.** Every count, line range, percentage, and size in
+  your report is either *verified* (you re-derived it: `grep -c`, re-read the
+  lines, ran the command) or *unverified*. Say which. Orchestrators are
+  expected to re-derive load-bearing numbers before passing your findings on;
+  honest "unverified" labels are what let them trust the rest.
 - **Abstain over guess.** Skeptical is not the same as trigger-happy. LLM
   reviewers systematically *over*-flag — inventing conformance problems
   and style "violations" that aren't real — and a report padded with

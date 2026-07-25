@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Launch OpenCode with only the skills agent-config exposes deliberately.
+# Claude's global skill directory remains available to Claude itself.
+set -euo pipefail
+
+export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1
+exec opencode "$@"

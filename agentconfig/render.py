@@ -102,6 +102,7 @@ class RenderContext:
         else:
             tmp = dest.with_name(f".{dest.name}.tmp-{os.getpid()}")
             shutil.copyfile(src, tmp)
+            shutil.copymode(src, tmp)
             os.replace(tmp, dest)
 
     def _backup_path(self, dest: Path) -> Path:

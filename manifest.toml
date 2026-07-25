@@ -23,14 +23,19 @@ overrides them. Project files take precedence on conflict.
 """
 
 [skills]
-# Portable = no Claude-Code sub-agent / MCP dependency; these get exported to
-# ~/.agents/skills for the other CLIs. Everything else is Claude-only.
+# Portable skills are exported to ~/.agents/skills and registered with Codex.
+# They may request worker fan-out where a harness supports it, but must retain a
+# reduced-coverage fallback for harnesses without subagents. Everything else is
+# Claude-only.
 # Skills themselves are auto-discovered from skills/*/SKILL.md.
 portable = [
   "bug-hunter",
+  "bug-scan",
+  "differential-test",
   "doc-grounded",
   "dyslexia-friendly",
   "editor",
+  "env-triage",
   "human-writer",
   "presentation-designer",
   "project-starter",
@@ -39,6 +44,16 @@ portable = [
   "stampede3-debug",
   "stampede3-submit",
 ]
+
+# Source agents are always installed for Claude. These are also rendered into
+# the named harnesses in their native formats.
+[agent.code-skeptic]
+targets = ["codex", "opencode"]
+
+# Nonportable skills deliberately exposed to a harness. Portable skills go via
+# ~/.agents/skills; this bypasses that shared directory for one named harness.
+[skill.code-review-deep]
+targets = ["opencode"]
 
 # Machine profiles (machines/<name>.md), matched against this host at render
 # time — first glob match wins. The matched profile renders as "this machine";
@@ -69,7 +84,7 @@ tested_against = "rust-v0.140.0"
 [harness.opencode]
 config_dir = "~/.config/opencode"
 strategy = "keyed-merge"     # opencode.json (plain JSON); AGENTS.md separate
-tested_against = "2026-06"
+tested_against = "2026-07"
 
 [harness.crush]
 config_dir = "~/.config/crush"

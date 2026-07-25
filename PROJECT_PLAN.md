@@ -371,35 +371,35 @@ AGENTS.md renderer + Codex rules adapter landed.
     entire security policy for an incomplete floor. So: gap; rely on
     Codex's native sandbox + approval (OQ3 fail-safe; D3 "full port" is
     structurally impossible here). Opt-in profile generation deferred.
-  - **Codex adapter COMPLETE**: rules + skills + MCP ported; hooks +
-    permissions are honest, documented gaps.
-- [~] **opencode** adapter — rules + MCP + skills done; perms/subagents/
-      commands next.
-  - **Verified (2026-06)**: `~/.config/opencode/opencode.json` (plain JSON
-    /JSONC); reads `~/.agents/skills` **natively** (so skills need no
-    adapter work — already exported); permission model is command-pattern
-    `allow`/`ask`/`deny` (the "closest to Claude" — bash denies CAN port).
+   - **Codex adapter COMPLETE**: rules + skills + MCP + manifest-targeted
+     read-only subagents ported; hooks + permissions are honest, documented gaps.
+- [x] **opencode** adapter — rules + MCP + skills + permissions + targeted
+      subagents done; commands remain N/A.
+   - **Verified (2026-07)**: `~/.config/opencode/opencode.json` (plain JSON
+     /JSONC); discovers `~/.agents/skills` and `~/.claude/skills`; the managed
+     `opencode-agent` launcher disables the latter to preserve the portable
+     skill boundary. Permission model is command-pattern `allow`/`ask`/`deny`
+     (the "closest to Claude" — bash denies CAN port).
   - [x] **rules** → `~/.config/opencode/AGENTS.md` (shared renderer).
   - [x] **MCP** → `opencode.json` `mcp` via **JSON keyed-merge** (new
     infra: deep-merge, JSONC-comment fail-safe). Verified live: preserves
     `provider.vllm`/`model`/existing `office-*` servers, adds ours.
-  - [x] **skills** → native (`~/.agents/skills`); nothing to do.
+   - [x] **skills** → portable `~/.agents/skills` plus manifest-targeted
+     `~/.config/opencode/skills`; `opencode-agent` exposes only that set.
   - [x] **permissions** — the real win. Bash allow/deny floor ported from
     settings.json to opencode's command-pattern model (`permission.bash`,
     `*`:ask + allows + denies-last). Verified live: all 10 denies + 22
     allows, `provider.vllm` preserved. `Read()` credential denies = partial
     gap (opencode governs bash/edit, not file reads). `permissions.py`
     shared parser.
-  - [x] **subagents = GAP** (user-confirmed). The 12 agents are
-    infrastructure for Claude-only skills (deep-planner/writing-architect/
-    llm-council) that don't run in opencode — definitions with no caller.
-    Per-subagent targets = ["claude"]. Avoids a fragile stdlib YAML parser
-    for zero working value.
+   - [x] **subagents** → manifest-targeted native Markdown agents. The
+     portable `bug-scan` worker `code-skeptic` is rendered read-only; the other
+     13 agents remain Claude-only because no OpenCode skill invokes them.
   - **hooks = gap** (same Claude-script-contract issue as Codex).
   - **commands = N/A** (no separate source; skills already reach opencode
     natively via `~/.agents/skills`).
-  - **opencode adapter COMPLETE**: rules + skills + MCP + permissions
-    ported; subagents/hooks = gaps; commands N/A.
+   - **opencode adapter COMPLETE**: rules + skills + MCP + permissions +
+     targeted subagents ported; hooks remain a gap; commands N/A.
   - opencode AGENTS.md flatten removed from install.sh (now generator);
     the unused `write_flattened_rules` bash function deleted.
 - [x] **Crush** adapter COMPLETE (built against docs; Crush not installed

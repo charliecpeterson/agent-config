@@ -11,10 +11,10 @@ Legend: ✅ ported · ✅ⁿ native (the harness reads a shared dir, no work nee
 |-------|:--:|:--:|:--:|:--:|:--:|
 | **Rules** (instructions) | ✅ `CLAUDE.md` | ✅ `AGENTS.md` | ✅ `AGENTS.md` | ✅ `CRUSH.md` | ✅ `~/.pi/agent/AGENTS.md` |
 | **Machine profile** | ✅ `machines.md` import | ✅ in `AGENTS.md` | ✅ in `AGENTS.md` | ✅ in `CRUSH.md` | ✅ in `AGENTS.md` |
-| **Skills** | ✅ `~/.claude/skills` | ✅ `config.toml` paths | ✅ⁿ `~/.agents/skills` | ✅ⁿ `~/.agents/skills` | ~ |
+| **Skills** | ✅ `~/.claude/skills` | ✅ `config.toml` paths | ✅ `~/.agents/skills` + targeted `~/.config/opencode/skills` via `opencode-agent` | ✅ⁿ `~/.agents/skills` + `~/.claude/skills` | ~ |
 | **MCP servers** | manual¹ | ✅ `[mcp_servers]` | ✅ `mcp` | ✅ `mcp` | **gap** (no native MCP) |
 | **Permissions** | ✅ `settings.json` | **gap** | ✅ `permission.bash` | **gap** | **gap** |
-| **Subagents** | ✅ `~/.claude/agents` | — | **gap** | **gap** | **gap** |
+| **Subagents** | ✅ `~/.claude/agents` | ✅ `code-skeptic.toml` | ✅ `code-skeptic.md` | **gap** | **gap** |
 | **Hooks** | ✅ `settings.json` | **gap** | **gap** | **gap** | **gap** |
 
 ¹ Claude MCP registration stays manual (`claude mcp add --scope local`) by
@@ -31,10 +31,11 @@ design — user-scope registration loads every server in every project.
   Claude's allow/deny faithfully. (`Read()` credential denies are a partial gap
   even there — opencode governs bash/edit, not file reads.)
 - **MCP, pi.** pi ships without native MCP ("No MCP"; extension-only).
-- **Subagents.** The 14 agents are infrastructure for Claude-only skills
-  (deep-planner / writing-architect / llm-council / doc-grounded / doc-sync) that don't run elsewhere —
-  porting the definitions would give the other harnesses subagents nothing
-  invokes. Targeted at Claude only.
+- **Subagents.** The 14 agents include `code-skeptic`, rendered to Codex and
+  opencode because the portable `bug-scan` skill invokes it. The other 13 are
+  infrastructure for Claude-only skills (deep-planner / writing-architect /
+  llm-council / doc-grounded / doc-sync), so porting them would create inactive
+  configuration.
 - **Hooks.** The hook scripts are bound to Claude's hook I/O contract
   (`.tool_input.*` in, `hookSpecificOutput` out); run by another harness they
   silently no-op. Registering them would be a false safety signal. Porting
@@ -47,6 +48,11 @@ three wrong assumptions baked into the old `install.sh`:
 
 - Codex does **not** read `~/.agents/skills` (skills register via `config.toml`)
   — skills weren't reaching Codex.
-- opencode **does** read `~/.agents/skills` natively — assumption held.
+- opencode discovers both `~/.agents/skills` and `~/.claude/skills`, and supports
+  global Markdown subagents under `~/.config/opencode/agents/`. The managed
+  `opencode-agent` launcher disables the latter, preserving the portable-skill
+  boundary and its smaller skill inventory.
+- Current Codex releases run subagent workflows by default and load custom
+  TOML agents under `~/.codex/agents/`; only `code-skeptic` is targeted there.
 - pi **does** read a global `~/.pi/agent/AGENTS.md` — it was getting no global
   rules, not "skills-only" as assumed.

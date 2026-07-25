@@ -50,6 +50,11 @@ def _agents_skills_dir(env) -> Path:
     return Path(p).expanduser() if p else Path.home() / ".agents" / "skills"
 
 
+def _agent_config_bin_dir(env) -> Path:
+    p = env.get("AGENT_CONFIG_BIN_DIR")
+    return Path(p).expanduser() if p else Path.home() / ".local" / "bin"
+
+
 def _emit_portable_skills(manifest: Manifest, repo_root: Path, ctx: RenderContext, dest_root: Path) -> None:
     """Copy portable skills to the shared dir opencode and pi read natively
     (Crush via skills_paths; Codex registers config.toml paths instead).
@@ -67,7 +72,9 @@ def build_adapters(manifest: Manifest, env) -> list:
     if "codex" in manifest.harnesses:
         adapters.append(CodexAdapter(_harness_dir(manifest, env, "codex")))
     if "opencode" in manifest.harnesses:
-        adapters.append(OpencodeAdapter(_harness_dir(manifest, env, "opencode")))
+        adapters.append(OpencodeAdapter(
+            _harness_dir(manifest, env, "opencode"), _agent_config_bin_dir(env),
+        ))
     if "crush" in manifest.harnesses:
         adapters.append(CrushAdapter(_harness_dir(manifest, env, "crush")))
     if "pi" in manifest.harnesses:

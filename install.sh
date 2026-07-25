@@ -8,11 +8,12 @@
 # backed up under ~/.agentconfig-backups/YYYYMMDD-HHMMSS/<mirrored-path>
 # before being replaced (kept out of scanned skill/agent dirs).
 #
-# Portable skills (no Claude-Code sub-agent / MCP dependency) are also placed
-# by the generator into ~/.agents/skills/, which pi and opencode read natively;
-# Crush is pointed at the same dir via skills_paths in its crush.json. The
-# global rules (userprofile/style/communication/engineering) are concatenated
-# into each AGENTS.md, since non-Claude agents don't resolve CLAUDE.md @imports.
+# Portable skills are also placed by the generator into ~/.agents/skills, which
+# pi and opencode read natively; Crush is pointed at the same dir via
+# skills_paths in its crush.json. `opencode-agent` disables automatic Claude
+# skill discovery so OpenCode sees that deliberate portable set. The global
+# rules (userprofile/style/communication/engineering) are concatenated into
+# each AGENTS.md, since non-Claude agents don't resolve CLAUDE.md @imports.
 #
 # Config files and skills install non-interactively. The script then prompts,
 # once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/mcps/,
@@ -42,6 +43,7 @@ CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 AGENTS_SKILLS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
 OPENCODE_DIR="${OPENCODE_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
+AGENT_CONFIG_BIN_DIR="${AGENT_CONFIG_BIN_DIR:-$HOME/.local/bin}"
 
 # Which accelerated backend extras this machine can use. Apple Silicon -> mlx,
 # an NVIDIA box -> cuda, anything else -> cpu. Drives the per-capability `uv`
@@ -278,6 +280,55 @@ _same_content() {
   else
     cmp -s "$a" "$b"
   fi
+}
+
+check_targeted_cross_agents() {
+  local py
+  py="$(_find_python)" || {
+    echo "  ? targeted-agent check unavailable (need python3 >=3.11)"
+    return 0
+  }
+  PYTHONPATH="$REPO_DIR" "$py" - "$REPO_DIR" "$CODEX_DIR" "$OPENCODE_DIR" <<'PYEOF'
+import sys
+from pathlib import Path
+
+from agentconfig import manifest
+from agentconfig.agents import codex_agent_toml, opencode_agent_markdown, read_agent
+
+root, codex_dir, opencode_dir = map(Path, sys.argv[1:])
+spec = manifest.load(root / "manifest.toml", root)
+failed = False
+for agent in spec.agents:
+    source = read_agent(root / "agents" / f"{agent.name}.md")
+    for target, dest, expected in (
+        ("codex", codex_dir / "agents" / f"{agent.name}.toml", codex_agent_toml(agent.name, source)),
+        ("opencode", opencode_dir / "agents" / f"{agent.name}.md", opencode_agent_markdown(agent.name, source)),
+    ):
+        if not agent.targets_harness(target):
+            continue
+        if not (codex_dir if target == "codex" else opencode_dir).is_dir():
+            continue
+        if dest.is_file() and dest.read_text() == expected:
+            print(f"  ✓ {dest} ({target} subagent)")
+        else:
+            print(f"  ✗ {dest} (missing or differs; re-run ./install.sh)")
+            failed = True
+for skill in spec.targeted_skills:
+    if not skill.targets_harness("opencode") or skill.name in spec.portable_skills:
+        continue
+    if not opencode_dir.is_dir():
+        continue
+    source = root / "skills" / skill.name
+    dest = opencode_dir / "skills" / skill.name
+    source_files = {p.relative_to(source): p.read_bytes() for p in source.rglob("*") if p.is_file()}
+    dest_files = {p.relative_to(dest): p.read_bytes() for p in dest.rglob("*") if p.is_file()} if dest.is_dir() else {}
+    if source_files == dest_files:
+        print(f"  ✓ {dest} (opencode targeted skill)")
+    else:
+        print(f"  ✗ {dest} (missing or differs; re-run ./install.sh)")
+        failed = True
+raise SystemExit(failed)
+PYEOF
 }
 
 is_portable_skill() {
@@ -583,6 +634,19 @@ run_check() {
       echo "  ✗ ${af%%:*} missing (re-run ./install.sh)"
     fi
   done
+  if ! check_targeted_cross_agents; then
+    missing=1
+  fi
+  local launcher_src="$REPO_DIR/bin/opencode-agent"
+  local launcher_dest="$AGENT_CONFIG_BIN_DIR/opencode-agent"
+  if [[ -d "$OPENCODE_DIR" ]]; then
+    if [[ -x "$launcher_dest" ]] && _same_content "$launcher_src" "$launcher_dest"; then
+      echo "  ✓ $launcher_dest (OpenCode portable-skill launcher)"
+    else
+      echo "  ✗ $launcher_dest (missing or differs; re-run ./install.sh)"
+      missing=1
+    fi
+  fi
   local crush_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/crush/crush.json"
   if [[ -f "$crush_cfg" ]] && command -v jq >/dev/null 2>&1 \
       && jq -e --arg p "$AGENTS_SKILLS_DIR" '(.skills_paths // []) | index($p)' "$crush_cfg" >/dev/null 2>&1; then
@@ -706,7 +770,7 @@ echo
 # replaced was verified byte-identical before the cut-over (see tests/).
 echo "Config (via agentconfig generator):"
 if py="$(_find_python)"; then
-  CLAUDE_DIR="$CLAUDE_DIR" PYTHONPATH="$REPO_DIR" $py -m agentconfig --repo-root "$REPO_DIR" \
+  CLAUDE_DIR="$CLAUDE_DIR" AGENT_CONFIG_BIN_DIR="$AGENT_CONFIG_BIN_DIR" PYTHONPATH="$REPO_DIR" $py -m agentconfig --repo-root "$REPO_DIR" \
     || echo "  warn     generator reported failures (see above)"
 else
   echo "  manual   need python3 >=3.11 (tomllib) to render config; install it and re-run"
@@ -719,6 +783,7 @@ echo
 echo "Other agent CLIs (Codex / pi / opencode / Crush):"
 echo "  Portable skills placed in $AGENTS_SKILLS_DIR by the generator (pi, opencode"
 echo "  read it natively; Codex registers skill paths in config.toml instead)."
+echo "  OpenCode: run $AGENT_CONFIG_BIN_DIR/opencode-agent to exclude ~/.claude skills."
 configure_crush_skills_path
 # Rules and (where the harness supports it) MCP are rendered by the agentconfig
 # generator for all four non-Claude harnesses. pi gets a generated AGENTS.md

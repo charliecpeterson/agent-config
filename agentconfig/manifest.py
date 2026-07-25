@@ -34,6 +34,24 @@ class Mcp:
 
 
 @dataclass(frozen=True)
+class Agent:
+    name: str
+    targets: frozenset[str]
+
+    def targets_harness(self, harness: str) -> bool:
+        return harness in self.targets
+
+
+@dataclass(frozen=True)
+class TargetedSkill:
+    name: str
+    targets: frozenset[str]
+
+    def targets_harness(self, harness: str) -> bool:
+        return harness in self.targets
+
+
+@dataclass(frozen=True)
 class Machine:
     name: str
     hosts: tuple[str, ...]   # hostname glob patterns; first match wins
@@ -46,6 +64,8 @@ class Manifest:
     claude_preamble: str
     portable_skills: frozenset[str]
     harnesses: dict[str, Harness]
+    agents: tuple[Agent, ...]
+    targeted_skills: tuple[TargetedSkill, ...]
     mcps: tuple[Mcp, ...]
     machines: tuple[Machine, ...]
 
@@ -92,6 +112,28 @@ def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
     if "claude" not in harnesses:
         raise ManifestError("[harness.claude] is required")
 
+    agents = []
+    for name, agent in data.get("agent", {}).items():
+        if not (repo_root / "agents" / f"{name}.md").is_file():
+            raise ManifestError(f"[agent.{name}] has no agents/{name}.md source")
+        targets = frozenset(agent.get("targets", []))
+        unknown_targets = targets - harnesses.keys()
+        if unknown_targets:
+            names = ", ".join(sorted(unknown_targets))
+            raise ManifestError(f"[agent.{name}] targets unknown harnesses: {names}")
+        agents.append(Agent(name=name, targets=targets))
+
+    targeted_skills = []
+    for name, skill in data.get("skill", {}).items():
+        if not (repo_root / "skills" / name / "SKILL.md").is_file():
+            raise ManifestError(f"[skill.{name}] has no skills/{name}/SKILL.md source")
+        targets = frozenset(skill.get("targets", []))
+        unknown_targets = targets - harnesses.keys()
+        if unknown_targets:
+            names = ", ".join(sorted(unknown_targets))
+            raise ManifestError(f"[skill.{name}] targets unknown harnesses: {names}")
+        targeted_skills.append(TargetedSkill(name=name, targets=targets))
+
     mcps = []
     for name, m in data.get("mcp", {}).items():
         cmd = m.get("command")
@@ -118,6 +160,8 @@ def load(manifest_path: str | Path, repo_root: str | Path) -> Manifest:
         claude_preamble=preamble,
         portable_skills=portable,
         harnesses=harnesses,
+        agents=tuple(agents),
+        targeted_skills=tuple(targeted_skills),
         mcps=tuple(mcps),
         machines=tuple(machines),
     )

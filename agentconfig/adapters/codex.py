@@ -5,9 +5,9 @@ Verified against current docs (2026-06): Codex reads a global ~/.codex/AGENTS.md
 paths in config.toml (it does NOT read ~/.agents/skills — the latent bug),
 takes MCP via [mcp_servers.<id>], and hooks via [hooks.<Event>] matcher groups.
 
-Renders rules (AGENTS.md, generator-owned, no merge) plus skills and MCP as a
-single keyed managed block in config.toml. Hooks and permissions are documented
-gaps — no faithful Codex mapping; see the GAP notes in emit() and SUPPORT.md.
+Renders rules (AGENTS.md, generator-owned), targeted custom subagents under
+~/.codex/agents, plus skills and MCP as a single keyed managed block in
+config.toml. Hooks and permissions are documented gaps; see SUPPORT.md.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from ..adapter import Adapter
+from ..agents import codex_agent_toml, read_agent
 from ..manifest import Manifest
 from ..reconcile import apply_managed_block
 from ..render import RenderContext
@@ -34,6 +35,7 @@ class CodexAdapter(Adapter):
 
     def emit(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
         self._emit_rules(manifest, repo_root, ctx)
+        self._emit_subagents(manifest, repo_root, ctx)
         # All config.toml content goes in ONE managed block (skills + MCP), so the
         # markers bound a single region and re-runs replace it cleanly.
         blocks: list[str] = []
@@ -71,6 +73,18 @@ class CodexAdapter(Adapter):
             render_agents_md(manifest, repo_root, ctx.machines_md),
             harness="codex", asset="rules", source_ref="generated",
         )
+
+    def _emit_subagents(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
+        for agent in manifest.agents:
+            if not agent.targets_harness("codex"):
+                continue
+            source = read_agent(Path(repo_root) / "agents" / f"{agent.name}.md")
+            ctx.write_file(
+                self.config_dir / "agents" / f"{agent.name}.toml",
+                codex_agent_toml(agent.name, source),
+                harness="codex", asset="subagents",
+                source_ref=f"agents/{agent.name}.md",
+            )
 
     def _copy_skills(self, manifest: Manifest, repo_root, ctx: RenderContext) -> list[str]:
         """Copy portable skills into ~/.codex/skills, return their paths to

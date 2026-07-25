@@ -63,6 +63,13 @@ cd ~/projects/agent-config
 Restart your agents afterward so they pick up the new skills. Re-run after a
 `git pull` to apply updates.
 
+For OpenCode, start `~/.local/bin/opencode-agent` rather than raw `opencode`.
+The managed launcher sets `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1`, so OpenCode
+loads the portable skill set from `~/.agents/skills` plus any manifest-targeted
+OpenCode skills, instead of every skill Claude discovers. Set
+`AGENT_CONFIG_BIN_DIR` before running the installer to place the launcher
+somewhere else.
+
 ## Layout
 
 ```
@@ -73,8 +80,8 @@ Restart your agents afterward so they pick up the new skills. Re-run after a
 ├── settings.json       Claude permissions + hooks baseline; also the
 │                       permission source other adapters translate from.
 ├── skills/             One folder per skill (SKILL.md + optional references/).
-├── agents/             Sub-agents for the Claude-only skills (deep-planner,
-│                       writing-architect, doc-grounded, …).
+├── agents/             Sub-agents for Claude skills; manifest-targeted workers
+│                       (currently `code-skeptic`) also render elsewhere.
 ├── hooks/              Hook scripts + status line (Claude).
 ├── machines/           One profile per machine; rendered into every harness's
 │                       rules as a "Machines" section (see below).
@@ -155,11 +162,15 @@ re-run.
 | Skill | Purpose |
 |---|---|
 | `bug-hunter` | Disciplined debugging — root cause, not symptom |
+| `bug-scan` | Portable adversarial hunt for latent bugs (failure-mode partition of `code-skeptic` workers, conductor-verified findings) |
 | `code-review-deep` | Tool-grounded review — whole-codebase assessment by default (Continue/Refactor/Rebuild), or a deep scoped change review when you name a PR/commit (distinct from built-in `/code-review`) |
 | `deep-planner` | Exhaustive one-question-at-a-time planning sessions |
+| `differential-test` | Validate a parser/scientific tool against an independent reference over a real corpus; leaves a harness with agree/disagree/refused outcomes |
 | `doc-grounded` | Answer tool/config/API questions from a source you point at (docs URL or local corpus) and cite the exact location, instead of from stale memory |
+| `doc-sync` | Audit a repo's docs against its code and bring them back in sync (inventory → `doc-auditor` fan-out → verified fixes) |
 | `dyslexia-friendly` | Formats all output for dyslexic-friendly reading |
 | `editor` | Critique-only feedback on drafts (no rewriting) |
+| `env-triage` | Is it my code, my toolchain, or my machine? Hung/slow build and process triage, cheap decisive checks first |
 | `human-writer` | Generate or rewrite prose, always non-AI-sounding |
 | `llm-council` | Pressure-test a real decision through five independent advisor lenses + anonymous peer review + a chairman verdict (Karpathy's LLM Council) |
 | `office-mcp` | Driving live Word/Excel/PowerPoint docs through the office MCP tools |

@@ -137,6 +137,12 @@ When adding a function, module, or subsystem, ask:
 - Trust callers within the same codebase. Validate at boundaries (user
   input, network, disk) — not between internal functions.
 
+## Test assertions
+- Pin the expected value instead of asserting that something happened.
+  `!is_empty()`, `is_ok()`, and `>=` all pass while the code drops data or
+  overcounts; `== 660` fails. Existence-shaped assertions are where silent
+  regressions hide.
+
 ## Things that scream "AI wrote this"
 - Variable names like `result`, `data`, `output`, `response_data` when a
   specific name fits.

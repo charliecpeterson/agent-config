@@ -1,13 +1,13 @@
 """opencode adapter (sst/opencode).
 
-Verified (2026-06): config at ~/.config/opencode/opencode.json (plain JSON or
-JSONC); opencode reads ~/.agents/skills natively (so skills need NO adapter
-work — the export already covers it); MCP under the `mcp` key as
-{type:"local", command:[...], enabled}; permissions are command-pattern
-allow/ask/deny (the "closest to Claude" model — and they port faithfully).
+Verified (2026-07): config at ~/.config/opencode/opencode.json (plain JSON or
+JSONC); opencode discovers ~/.agents/skills and ~/.claude/skills; MCP under the
+`mcp` key as {type:"local", command:[...], enabled}; permissions are
+command-pattern allow/ask/deny (the "closest to Claude" model, and they port
+faithfully). Global subagents live in ~/.config/opencode/agents.
 
 Renders rules (AGENTS.md, separate file), MCP (JSON keyed-merge into
-opencode.json), and the bash permission floor. Subagents are a documented gap.
+opencode.json), the bash permission floor, and manifest-targeted subagents.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from ..adapter import Adapter
+from ..agents import opencode_agent_markdown, read_agent
 from ..manifest import Manifest
 from ..permissions import load_claude_perms
 from ..reconcile import keyed_merge_json
@@ -26,8 +27,9 @@ class OpencodeAdapter(Adapter):
     HARNESS = "opencode"
     TESTED_AGAINST = "2026-06"
 
-    def __init__(self, config_dir: Path) -> None:
+    def __init__(self, config_dir: Path, launcher_dir: Path) -> None:
         self.config_dir = Path(config_dir)
+        self.launcher_dir = Path(launcher_dir)
 
     def is_present(self) -> bool:
         return self.config_dir.is_dir()
@@ -61,7 +63,36 @@ class OpencodeAdapter(Adapter):
                 ctx, self.config_dir / "opencode.json", updates,
                 harness="opencode", asset="mcp+permissions",
             )
-        # Skills: native (~/.agents/skills) — nothing to do.
+        self._emit_subagents(manifest, repo_root, ctx)
+        self._emit_targeted_skills(manifest, repo_root, ctx)
+        ctx.copy_path(
+            Path(repo_root) / "bin" / "opencode-agent",
+            self.launcher_dir / "opencode-agent",
+            harness="opencode", asset="launcher",
+        )
+        # Skills: native discovery (~/.agents/skills and ~/.claude/skills).
+
+    def _emit_subagents(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
+        for agent in manifest.agents:
+            if not agent.targets_harness("opencode"):
+                continue
+            source = read_agent(Path(repo_root) / "agents" / f"{agent.name}.md")
+            ctx.write_file(
+                self.config_dir / "agents" / f"{agent.name}.md",
+                opencode_agent_markdown(agent.name, source),
+                harness="opencode", asset="subagents",
+                source_ref=f"agents/{agent.name}.md",
+            )
+
+    def _emit_targeted_skills(self, manifest: Manifest, repo_root, ctx: RenderContext) -> None:
+        for skill in manifest.targeted_skills:
+            if not skill.targets_harness("opencode") or skill.name in manifest.portable_skills:
+                continue
+            ctx.copy_path(
+                Path(repo_root) / "skills" / skill.name,
+                self.config_dir / "skills" / skill.name,
+                harness="opencode", asset="targeted-skills",
+            )
 
     def _bash_permissions(self, repo_root) -> dict | None:
         """Port the bash allow/deny floor to opencode's command-pattern model

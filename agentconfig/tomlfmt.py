@@ -10,7 +10,13 @@ from __future__ import annotations
 
 def toml_str(s: str) -> str:
     """A TOML basic string with minimal escaping (paths, names)."""
-    esc = s.replace("\\", "\\\\").replace('"', '\\"')
+    esc = (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
     return f'"{esc}"'
 
 

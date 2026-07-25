@@ -75,6 +75,7 @@ class CodexSkillsTest(unittest.TestCase):
 
             # portable skills copied into ~/.codex/skills
             self.assertTrue((codex / "skills" / "bug-hunter" / "SKILL.md").is_file())
+            self.assertTrue((codex / "skills" / "bug-scan" / "SKILL.md").is_file())
 
             text = (codex / "config.toml").read_text()
             # co-managed content preserved verbatim
@@ -104,6 +105,20 @@ class CodexSkillsTest(unittest.TestCase):
             self.assertEqual(first, second)                      # idempotent
             self.assertEqual(second.count(">>> agent-config managed"), 1)  # not duplicated
             tomllib.loads(second)                                # still valid TOML
+
+    def test_targeted_subagent_is_rendered_read_only(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            codex = base / ".codex"
+            codex.mkdir()
+            _run(base, codex_dir=codex)
+
+            agent = tomllib.loads((codex / "agents" / "code-skeptic.toml").read_text())
+            self.assertEqual(agent["name"], "code-skeptic")
+            self.assertEqual(agent["sandbox_mode"], "read-only")
+            self.assertIn("Adversarial code reviewer", agent["description"])
+            self.assertIn("Evidence or it didn't happen", agent["developer_instructions"])
 
 
 class CodexMcpTest(unittest.TestCase):
