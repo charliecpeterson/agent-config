@@ -63,8 +63,17 @@ targets = ["opencode"]
 [machine.mac-studio]
 hosts = ["charlie-m2studio*"]
 
+[machine.macbook-air]
+hosts = ["Charless-MacBook-Air.local"]
+
 [machine.linux-4090]
-hosts = []   # fill in that box's hostname pattern on first install there
+hosts = ["charliebox"]
+
+[machine.dgxspark]
+hosts = ["dgxspark", "spark-b56c"]
+
+[machine.hoffman2]
+hosts = ["loginh2", "login*.hoffman2.oarc.ucla.edu"]
 
 [machine.stampede3]
 hosts = ["*stampede3.tacc.utexas.edu"]

@@ -114,7 +114,6 @@ PERSONAL_MCPS=(
   "edamcp|https://github.com/charliecpeterson/edamcp.git"
   "chemtoolsmcp|https://github.com/charliecpeterson/chemtoolsmcp.git|chemtools"
   "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
-  "h2mcp|https://github.com/charliecpeterson/h2mcp.git"
   # transcribemcp: thin local transcription MCP (audio in, transcript JSON out).
   # whisperx backend + pyannote diarization => whisperx,diarize. The vad extra
   # (silero-vad) is only strictly needed for TRANSCRIPTION_BACKEND=cohere, which
