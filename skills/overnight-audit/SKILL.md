@@ -112,6 +112,48 @@ invent findings to fill a family.
 - **Doc claims vs code.** Every concrete claim in a README, plan doc, or code
   comment is an assertion about the system. Check the ones that name a symbol,
   path, flag, or number.
+- **Literals the input never contains.** Wherever code recognises text by
+  searching for a constant — a parser's section header, a log matcher, a scraper's
+  selector, a migration's version string — extract every literal and ask the
+  corpus whether any real input contains it. Then ask again with whitespace
+  removed.
+
+  This family exists because of how it fails, not what it finds: **a search that
+  returns nothing is indistinguishable from input that contains nothing**, so a
+  wrong literal produces a legitimately-absent field rather than an error. No
+  test can see it, and the always-empty-field sweep above cannot either, because
+  the value has a perfectly good `None` to be. In the reference project one
+  literal differed from the real file by a single space beside a slash, and every
+  standalone file of that format silently dropped its entire orbital table —
+  found eventually by a user, not by the suite.
+
+  Two answers matter, and the second is worth far more:
+
+  - *Matched by nothing* — either the branch never fires on any input held, or
+    the literal is wrong. Usually the former, so treat it as a coverage report.
+  - *Matched only once whitespace is removed* — the words are right and the
+    spacing is not. A producer **is** writing that section and the parser **is**
+    missing it. Close to a guaranteed defect.
+
+  **Precondition: a corpus of real inputs.** Against synthetic-only fixtures
+  every literal reads as dead and the probe says nothing. Check this before
+  running it, the way you check for a mutation-testing tool.
+
+  Three traps, each of which made the first version useless (see "when the probe
+  is what is wrong" below):
+
+  - **Collapse whitespace and you miss the case it exists for.** `orbital/ Coeff`
+    and `orbital / Coeff` stay different when runs of whitespace are collapsed,
+    because the space moved *relative to the punctuation* rather than doubling.
+    Strip whitespace entirely instead. It over-matches slightly; that is the
+    right trade for a lead.
+  - **Group alternative spellings.** Code routinely accepts several spellings in
+    one condition — a padded field, a legacy header kept beside the modern one.
+    Reporting the variant your corpus lacks is a pure false positive, and it was
+    *every* hit on the reference project's first run.
+  - **Exclude test code.** Assertions search strings too, and sample input is
+    often inlined in test modules rather than kept as fixtures. That was a third
+    of the first report.
 
 ### 3 — Verify every candidate before it reaches the report
 
@@ -135,12 +177,54 @@ session above, five of the first ten sweep hits were honest nulls — a field th
 CLI stamps later, a quantity the format never prints — and recording *why* they
 were honest is what stopped them being re-investigated the following week.
 
+#### When the probe is what is wrong
+
+The first version of a mechanical probe is usually measuring its own naivety, and
+this is the failure mode a cheap or local model will not catch — its instinct is
+to agree with the probe and write the finding up. Verification has to be able to
+conclude **"the check is wrong"**, not just "this instance is fine".
+
+Two demonstrations from one afternoon, both on a probe built by someone who knew
+the bug it was looking for:
+
+- Its single highest-confidence hit — a parser literal "missing" from the file it
+  reads — was a spelling the same `if` already handled on the line above. A
+  verifier that only inspected the flagged line would have confirmed a bug that
+  did not exist. Reading the *enclosing statement* is what settled it.
+- Its first dead-literal lead was the same story in a different format: the modern
+  spelling of a header, sitting beside the legacy one, in a corpus that only held
+  legacy files.
+
+The tell is a *category* of hit failing for one shared reason rather than
+scattered individual hits. When two candidates from the same family dismiss for
+the same cause, stop verifying and fix the probe — then re-run it. A probe with a
+systematic false positive does not produce a slightly noisy report, it produces
+one nobody finishes reading.
+
+Say so in the report when this happens. "The check was wrong and here is what it
+now excludes" is a durable finding; silently tightening the probe means next
+week's run rediscovers the same noise.
+
 ### 4 — The report
 
 One file, in the project's notes directory, dated. Structure:
 
 1. **What ran**, including probes that found nothing — a family with zero hits
    is information, and its absence next time is a regression in coverage.
+
+   Report the zero with its denominator, because a bounded zero is a *result*
+   and a bare one reads like the probe failed to start. "315 literals across 270
+   sources against 751 real input files, no near-misses" says the class is clean;
+   "no near-misses" says nothing and is what a broken extractor prints too. The
+   same probe's dead-literal list, which found no bugs at all, was still the most
+   useful thing it produced: it showed an entire format branch — a dozen keys for
+   one input dialect — that no file in the corpus exercises, so that code had
+   never run against real input.
+
+   Do not oversell a probe by the bug that inspired it. If a family was written
+   *after* a defect was found by other means, say so; its contribution is the
+   answer that no further instances exist, which is worth having and is not the
+   same claim.
 2. **Confirmed**, ranked by consequence, each with evidence, repro, and the
    values. Consequence means user-visible wrongness, not how surprising it is.
 3. **Dismissed, and why.** Equal billing. This is the section that compounds.
