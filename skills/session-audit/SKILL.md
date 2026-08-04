@@ -53,6 +53,17 @@ nodding. Either read that script adversarially for bugs, or write an
 independent check. Three of the week's worst misses were verification
 scripts confirming their own assumptions.
 
+**Reproduce the claim's conditions, not conditions near them.** The most
+common way a check fails is by measuring something adjacent and reading
+the result as evidence. Real examples, all from one week: a before/after
+comparison whose "before" baseline already contained the change; a
+timing test run at the converged basis when the code under test starts
+from the seed basis; a rescue-path test seeded with the failed density
+the fix exists to avoid inheriting. Each returned a clean-looking
+"not reproduced". Before reporting REFUTED, state the claim's conditions
+explicitly and check your setup against them line by line — a failure to
+reproduce is only evidence if you reproduced the setup.
+
 ## Process
 
 ### 0 — Scope to a window, at a milestone
