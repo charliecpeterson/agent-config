@@ -40,6 +40,7 @@ portable = [
   "presentation-designer",
   "project-starter",
   "recent-research",
+  "session-audit",
   "session-handoff",
   "stampede3-debug",
   "stampede3-submit",
