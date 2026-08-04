@@ -75,6 +75,15 @@ points — before a big compute submit, before a release gate, after
 changes to producer code — not on a timer. A periodic audit of an idle
 repo is token spend that confirms nothing happened.
 
+**Scale to the claim count, not the repo size.** ~3 workers for a short
+window, 5 for a dense multi-day one; past ~6 the briefs start overlapping
+and the reports collide. A worker that re-derives numerically can cost an
+hour of wall clock and six figures of tokens, so this is a milestone tool,
+not a background process. If the window holds fewer than ~10 falsifiable
+claims, audit them inline — the fan-out is pure overhead below that, and
+saying so is a better answer than spawning five agents to confirm nothing
+happened.
+
 ### 1 — Extract the falsifiable claims
 
 Sweep the window's artifacts for assertions that can be wrong, and tag
@@ -122,6 +131,14 @@ Alongside claim checks, three mechanical passes that need no sampling:
 - **provenance by inspection**: pick N shipped artifacts at random and
   determine, from their content alone, whether they are current. If
   that requires archaeology, that is a finding.
+- **the session's own dropped findings**: grep the window for `OPEN`,
+  `STILL OWED`, `TODO`, "worth a look", "should be", "not fixed". Sessions
+  routinely diagnose something correctly, write it down, and move on. In
+  the source campaign the audit re-found dead code the session had
+  identified itself two hours earlier and never removed. These are the
+  cheapest findings available — already diagnosed, needing only a
+  decision — and a session that accumulates them faster than it clears
+  them is a top-line finding of its own.
 
 ### 4 — Report: CONFIRMED / REFUTED / UNVERIFIABLE
 
@@ -145,6 +162,22 @@ next LLM re-check unnecessary. The deliverable's last section is
 shrinks — properties move from sampled-by-agent to enforced-by-code.
 The auditor's job is to find what is not yet mechanized, not to become
 the mechanism.
+
+## When the project has no lab log
+
+Most projects don't keep an append-only record, and the skill does not
+need one. The claims still exist: commit bodies, PR descriptions, issue
+comments, design docs, and the session transcript if you have it. Commit
+messages alone are usually enough — and a project that squashes to
+one-line messages simply has fewer claims to audit, which is worth
+telling the user rather than working around. Board-vs-log-vs-tree becomes
+README-vs-tree or issue-vs-tree. Provenance-by-inspection applies wherever
+something is *shipped* — models, datasets, builds, generated code,
+migrations — and is skippable for a pure source library.
+
+The one thing that does not survive removal is the independence rule. An
+audit run as a fork of the session is worth less than no audit, because it
+returns a confident CONFIRMED on the session's own reasoning.
 
 ## Honest limits
 
